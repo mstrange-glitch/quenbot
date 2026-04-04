@@ -306,7 +306,7 @@ npm run dev
 
 ## Acknowledgments
 
-- **[@mstrange-glitch](https://github.com/mstrange-glitch)** — The namesake. *Quenta* was her word. This one's for you.
+- **[@mstrange-glitch](https://github.com/mstrange-glitch)** — The inspiration behind the name. There's something hidden in the app just for you.
 - **[RECbot](https://github.com/enkode/recbot)** and **[jotbot](https://github.com/enkode/jotbot)** — The two apps that became QUENbot
 - **[Handy](https://github.com/cjpais/Handy)** — Inspiration for the push-to-transcribe workflow and local STT architecture
 - **[NVIDIA Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)** — Speech-to-text model powering VTT

@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;700&family=Orbitron:wght@400;700&display=swap');
+
+:root, [data-theme="dark-red"] {
+  --bg: #000000;
+  --surface: #111111;
+  --primary: #9A2424;
+  --primary-hover: #C43030;
+  --primary-glow: rgba(154, 36, 36, 0.4);
+  --text: #E0E0E0;
+  --text-dim: #A0A0A0;
+  --text-bright: #FFFFFF;
+  --border: #4A4A4A;
+  --border-dim: #2a2a2a;
+  --font-body: 'Chakra Petch', sans-serif;
+  --font-digital: 'Orbitron', sans-serif;
+}
+
+[data-theme="dark-blue"] {
+  --bg: #0a0e17;
+  --surface: #131a2b;
+  --primary: #2463eb;
+  --primary-hover: #3b82f6;
+  --primary-glow: rgba(36, 99, 235, 0.4);
+  --text: #d4dce8;
+  --text-dim: #8899b0;
+  --text-bright: #FFFFFF;
+  --border: #2d3a50;
+  --border-dim: #1a2338;
+}
+
+[data-theme="dark-green"] {
+  --bg: #0a100a;
+  --surface: #111a11;
+  --primary: #22863a;
+  --primary-hover: #2ea043;
+  --primary-glow: rgba(34, 134, 58, 0.4);
+  --text: #c8e0c8;
+  --text-dim: #7da07d;
+  --text-bright: #FFFFFF;
+  --border: #2a4a2a;
+  --border-dim: #1a2a1a;
+}
+
+[data-theme="dark-purple"] {
+  --bg: #0e0a14;
+  --surface: #18122b;
+  --primary: #7c3aed;
+  --primary-hover: #8b5cf6;
+  --primary-glow: rgba(124, 58, 237, 0.4);
+  --text: #dad0e8;
+  --text-dim: #9088a0;
+  --text-bright: #FFFFFF;
+  --border: #3a2d50;
+  --border-dim: #241a38;
+}
+
+[data-theme="dark-amber"] {
+  --bg: #100a00;
+  --surface: #1a1200;
+  --primary: #d97706;
+  --primary-hover: #f59e0b;
+  --primary-glow: rgba(217, 119, 6, 0.4);
+  --text: #e8dcc8;
+  --text-dim: #a0907d;
+  --text-bright: #FFFFFF;
+  --border: #4a3a1a;
+  --border-dim: #2a2210;
+}
+
+[data-theme="light"] {
+  --bg: #f5f5f5;
+  --surface: #ffffff;
+  --primary: #9A2424;
+  --primary-hover: #C43030;
+  --primary-glow: rgba(154, 36, 36, 0.2);
+  --text: #1a1a1a;
+  --text-dim: #666666;
+  --text-bright: #000000;
+  --border: #cccccc;
+  --border-dim: #e0e0e0;
+}
+
+[data-theme="light-blue"] {
+  --bg: #f0f4fa;
+  --surface: #ffffff;
+  --primary: #2463eb;
+  --primary-hover: #3b82f6;
+  --primary-glow: rgba(36, 99, 235, 0.2);
+  --text: #1a2440;
+  --text-dim: #5570a0;
+  --text-bright: #000000;
+  --border: #c0d0e8;
+  --border-dim: #dce6f5;
+}
+
+[data-theme="light-green"] {
+  --bg: #f0f8f0;
+  --surface: #ffffff;
+  --primary: #22863a;
+  --primary-hover: #2ea043;
+  --primary-glow: rgba(34, 134, 58, 0.2);
+  --text: #1a2a1a;
+  --text-dim: #507050;
+  --text-bright: #000000;
+  --border: #b0d0b0;
+  --border-dim: #d8ead8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-size: var(--ui-font-size, 12px);
+  --scale: var(--ui-scale, 1);
+}
+
+/* Scale all fixed-size text elements based on --ui-font-size */
+.titlebar-brand { font-size: var(--ui-font-size, 12px) !important; }
+.tab-bar-btn { font-size: calc(var(--ui-font-size, 12px) * 0.9) !important; }
+.list-title, .settings-title { font-size: calc(var(--ui-font-size, 12px) * 0.9) !important; }
+.list-count { font-size: calc(var(--ui-font-size, 12px) * 0.9) !important; }
+.recording-name { font-size: var(--ui-font-size, 12px) !important; }
+.recording-meta { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.player-status { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.player-time { font-size: calc(var(--ui-font-size, 12px) * 1.15) !important; }
+.player-file { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.player-empty-text { font-size: var(--ui-font-size, 12px) !important; }
+.app-footer { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.feed-item-title { font-size: var(--ui-font-size, 12px) !important; }
+.feed-item-preview { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.feed-item-time { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.settings-label { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.settings-select { font-size: calc(var(--ui-font-size, 12px) * 0.9) !important; }
+.settings-toggle-label { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.settings-section-label { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.hotkey-label { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.hotkey-btn { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.note-tab { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.rec-btn-label { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.settings-model-name { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.settings-model-detail { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.settings-model-error { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.model-status-badge { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.model-progress-text { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.settings-btn-small { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.settings-btn { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.settings-value { font-size: calc(var(--ui-font-size, 12px) * 0.85) !important; }
+.settings-hint { font-size: calc(var(--ui-font-size, 12px) * 0.75) !important; }
+.settings-text-input { font-size: calc(var(--ui-font-size, 12px) * 0.9) !important; }
+.feed-delete-btn { font-size: calc(var(--ui-font-size, 12px) * 0.9) !important; }
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}

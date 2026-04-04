@@ -1,0 +1,68 @@
+{
+  "name": "quenbot",
+  "version": "1.0.0",
+  "description": "Unified audio recorder, note-taker, and voice transcriber with LAN sync",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "bash dev.sh",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "uiohook-napi": "^1.5.4",
+    "@tiptap/react": "^3.19.0",
+    "@tiptap/starter-kit": "^3.19.0",
+    "@tiptap/extension-image": "^3.19.0",
+    "@tiptap/extension-placeholder": "^3.19.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/ws": "^8.5.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "electron": "^40.7.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  },
+  "build": {
+    "appId": "com.antigravity.quenbot",
+    "productName": "QUENbot",
+    "files": [
+      "dist/**/*",
+      "assets/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "QUENbot",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico"
+    },
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": ["*.png", "*.ico"]
+      }
+    ]
+  }
+}

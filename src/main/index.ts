@@ -1,0 +1,504 @@
+import { app, ipcMain, BrowserWindow, session, net, clipboard } from 'electron';
+import { readdir, stat, readFile, appendFile, writeFile, unlink, rename as fsRename, mkdir } from 'fs/promises';
+import { join, dirname, extname, resolve } from 'path';
+import { existsSync, readFileSync, createWriteStream } from 'fs';
+import { createTray } from './tray';
+import { createMainWindow, getMainWindow, setOnWidgetClosed, setAlwaysOnTop, setMiniMode, showWidgetPreview, hideWidgetPreview, updateWidgetPreview } from './windows';
+import { ensureRecordingsDir, getRecordingsDir, saveRecording } from './audio-saver';
+import { initShortcuts, stopShortcuts, setStealthCallbacks, loadHotkeyConfig, resetRecordingState, setQuickNoteCallback, setTranscribeCallbacks } from './shortcuts';
+import * as notesStore from './notes-store';
+import * as feedStore from './feed-store';
+import * as chipStore from './chip-store';
+
+const isDev = process.env.NODE_ENV === 'development';
+const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+const logFile = join(app.getPath('userData'), 'quenbot.log');
+
+async function log(msg: string): Promise<void> {
+  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  console.log(msg);
+  try { await appendFile(logFile, line); } catch { /* ignore */ }
+}
+
+process.on('uncaughtException', (err) => {
+  log(`UNCAUGHT: ${err.message}\n${err.stack}`);
+});
+process.on('unhandledRejection', (reason) => {
+  log(`UNHANDLED REJECTION: ${reason}`);
+});
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
+app.on('second-instance', () => {
+  const mainWin = getMainWindow();
+  if (mainWin) {
+    mainWin.show();
+    if (mainWin.isMinimized()) mainWin.restore();
+    mainWin.focus();
+  }
+});
+
+// Stealth recording
+let stealthWindow: BrowserWindow | null = null;
+
+function startStealthRecording(): void {
+  stealthWindow = new BrowserWindow({
+    width: 1, height: 1, show: false, skipTaskbar: true,
+    webPreferences: {
+      preload: join(__dirname, '..', 'preload', 'index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  if (isDev && rendererUrl) {
+    stealthWindow.loadURL(`${rendererUrl}/widget/index.html`);
+  } else {
+    stealthWindow.loadFile(join(__dirname, '..', 'renderer', 'widget', 'index.html'));
+  }
+  stealthWindow.webContents.once('did-finish-load', () => {
+    stealthWindow!.webContents.send('set-widget-mode', 'stealth');
+    stealthWindow!.webContents.send('start-recording', 'stealth');
+  });
+  stealthWindow.on('closed', () => { stealthWindow = null; });
+}
+
+function stopStealthRecording(): void {
+  if (!stealthWindow || stealthWindow.isDestroyed()) return;
+  const win = stealthWindow;
+  const cleanup = (): void => {
+    ipcMain.removeListener('save-complete', onSaveComplete);
+    clearTimeout(fallback);
+    if (!win.isDestroyed()) win.close();
+  };
+  const onSaveComplete = (event: Electron.IpcMainEvent): void => {
+    if (event.sender === win.webContents) cleanup();
+  };
+  ipcMain.on('save-complete', onSaveComplete);
+  win.webContents.send('stop-recording');
+  const fallback = setTimeout(cleanup, 15000);
+}
+
+// Push-to-transcribe (Handy-style)
+let transcribeWindow: BrowserWindow | null = null;
+
+function startTranscription(): void {
+  transcribeWindow = new BrowserWindow({
+    width: 200, height: 44,
+    frame: false, transparent: true, alwaysOnTop: true,
+    skipTaskbar: true, resizable: false, show: false,
+    x: 100, y: 100,
+    webPreferences: {
+      preload: join(__dirname, '..', 'preload', 'index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // Position bottom-center of primary display
+  const { screen } = require('electron');
+  const display = screen.getPrimaryDisplay();
+  const { width: screenW, height: screenH } = display.workAreaSize;
+  transcribeWindow.setPosition(Math.round(screenW / 2 - 100), screenH - 80);
+
+  if (isDev && rendererUrl) {
+    transcribeWindow.loadURL(`${rendererUrl}/widget/index.html`);
+  } else {
+    transcribeWindow.loadFile(join(__dirname, '..', 'renderer', 'widget', 'index.html'));
+  }
+
+  transcribeWindow.once('ready-to-show', () => {
+    transcribeWindow!.show();
+    transcribeWindow!.webContents.send('set-widget-mode', 'transcribe');
+    transcribeWindow!.webContents.send('start-transcription');
+  });
+
+  transcribeWindow.on('closed', () => { transcribeWindow = null; });
+}
+
+function stopTranscription(): void {
+  if (!transcribeWindow || transcribeWindow.isDestroyed()) return;
+  const win = transcribeWindow;
+
+  const cleanup = (): void => {
+    ipcMain.removeListener('transcription-result', onResult);
+    clearTimeout(fallback);
+    if (!win.isDestroyed()) win.close();
+  };
+
+  const onResult = (_event: Electron.IpcMainEvent, text: string): void => {
+    if (text && text.trim()) {
+      // Save original clipboard, set transcript, paste, restore
+      const originalClipboard = clipboard.readText();
+      clipboard.writeText(text.trim());
+
+      // Brief delay then simulate Ctrl+V paste
+      setTimeout(() => {
+        const { keyboard } = require('uiohook-napi');
+        // Use Electron's native keyboard simulation isn't available,
+        // so we just leave it on clipboard. User can Ctrl+V manually.
+        // The transcript is on the clipboard ready to paste.
+        log(`Transcription complete: "${text.trim().substring(0, 50)}..."`);
+
+        // Notify main window
+        const mainWin = getMainWindow();
+        if (mainWin && !mainWin.isDestroyed()) {
+          mainWin.webContents.send('transcription-complete', text.trim());
+        }
+      }, 100);
+    }
+    cleanup();
+  };
+
+  ipcMain.once('transcription-result', onResult);
+  win.webContents.send('stop-transcription');
+  const fallback = setTimeout(cleanup, 10000);
+}
+
+// Settings
+const settingsPath = join(app.getPath('userData'), 'settings.json');
+
+function loadSettings(): Record<string, unknown> {
+  try {
+    if (existsSync(settingsPath)) {
+      return JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    }
+  } catch { /* ignore */ }
+  return {};
+}
+
+async function saveSettings(settings: Record<string, unknown>): Promise<void> {
+  await writeFile(settingsPath, JSON.stringify(settings, null, 2));
+}
+
+// Show JOT tab helper
+function showJotTab(): void {
+  const mainWin = getMainWindow();
+  if (!mainWin) {
+    const win = createMainWindow();
+    win.once('ready-to-show', () => {
+      win.webContents.send('show-jot-tab');
+    });
+  } else {
+    mainWin.show();
+    mainWin.focus();
+    mainWin.webContents.send('show-jot-tab');
+  }
+}
+
+function registerIPC(): void {
+  // Audio save
+  ipcMain.handle('save-audio', async (_event, audioData: ArrayBuffer, sampleRate: number, channels: number) => {
+    try {
+      const filepath = await saveRecording(audioData, sampleRate, channels);
+      await log(`Recording saved: ${filepath}`);
+      const mainWin = getMainWindow();
+      if (mainWin && !mainWin.isDestroyed()) {
+        mainWin.webContents.send('recordings-updated');
+      }
+      // Add to feed
+      const name = filepath.split(/[/\\]/).pop() || 'Recording';
+      const recStat = await stat(filepath);
+      feedStore.addItem({ type: 'recording', title: name, preview: '', refId: filepath, size: recStat.size });
+      return filepath;
+    } catch (err) {
+      await log(`Failed to save: ${err}`);
+      throw err;
+    }
+  });
+
+  ipcMain.handle('get-recordings', async () => {
+    const dir = getRecordingsDir();
+    try {
+      const files = await readdir(dir);
+      const wavFiles = files.filter(f => f.endsWith('.wav'));
+      const recordings = await Promise.all(
+        wavFiles.map(async (name) => {
+          const filepath = join(dir, name);
+          const fileStat = await stat(filepath);
+          return { name, path: filepath, size: fileStat.size, date: fileStat.mtime.toISOString() };
+        })
+      );
+      recordings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return recordings;
+    } catch { return []; }
+  });
+
+  ipcMain.handle('read-audio-file', async (_event, filepath: string) => {
+    const buffer = await readFile(filepath);
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  });
+
+  ipcMain.handle('get-widget-mode', () => 'push');
+
+  ipcMain.handle('hide-window', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.hide();
+  });
+
+  ipcMain.handle('minimize-window', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.hide();
+  });
+
+  ipcMain.handle('get-audio-devices', async () => null);
+
+  ipcMain.handle('set-always-on-top', (_event, value: boolean) => {
+    setAlwaysOnTop(value);
+  });
+
+  ipcMain.handle('set-mini-mode', (_event, mini: boolean) => {
+    setMiniMode(mini);
+  });
+
+  ipcMain.handle('show-widget-preview', () => {
+    showWidgetPreview();
+  });
+
+  ipcMain.handle('hide-widget-preview', () => {
+    hideWidgetPreview();
+  });
+
+  ipcMain.handle('update-widget-preview', (_event, scale: number, position: string) => {
+    updateWidgetPreview(scale, position);
+  });
+
+  ipcMain.handle('get-settings', () => loadSettings());
+
+  ipcMain.handle('save-settings', async (_event, settings: Record<string, unknown>) => {
+    // Merge with existing settings so we don't lose fields like floatWindow
+    const existing = loadSettings();
+    const merged = { ...existing, ...settings };
+    // Remove undefined values so they don't overwrite existing
+    for (const key of Object.keys(merged)) {
+      if (merged[key] === undefined) delete merged[key];
+    }
+    await saveSettings(merged);
+    if (merged.hotkeys) {
+      loadHotkeyConfig(merged.hotkeys as any);
+    }
+    return true;
+  });
+
+  ipcMain.handle('delete-recording', async (_event, filepath: string) => {
+    const recDir = getRecordingsDir();
+    if (!resolve(filepath).toLowerCase().startsWith(resolve(recDir).toLowerCase())) {
+      throw new Error('Invalid file path');
+    }
+    await unlink(filepath);
+    await log(`Recording deleted: ${filepath}`);
+    const mainWin = getMainWindow();
+    if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('recordings-updated');
+    return true;
+  });
+
+  ipcMain.handle('rename-recording', async (_event, oldPath: string, newName: string) => {
+    const recDir = getRecordingsDir();
+    if (!resolve(oldPath).toLowerCase().startsWith(resolve(recDir).toLowerCase())) {
+      throw new Error('Invalid file path');
+    }
+    const ext = extname(newName) === '.wav' ? '' : '.wav';
+    const newPath = join(dirname(oldPath), newName + ext);
+    if (existsSync(newPath)) throw new Error('A recording with that name already exists');
+    await fsRename(oldPath, newPath);
+    await log(`Recording renamed: ${oldPath} -> ${newPath}`);
+    const mainWin = getMainWindow();
+    if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('recordings-updated');
+    return newPath;
+  });
+
+  // Notes
+  ipcMain.handle('get-notes', () => notesStore.getAll());
+  ipcMain.handle('save-note', async (_event, note: any, isNew?: boolean) => {
+    notesStore.save(note);
+    const mainWin = getMainWindow();
+    if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('notes-updated');
+    // Only add to feed for new notes, not every edit
+    if (isNew) {
+      const title = note.title || 'Untitled note';
+      const preview = (note.content || '').replace(/<[^>]*>/g, '').substring(0, 80);
+      feedStore.addItem({ type: 'note', title, preview, refId: note.id });
+    }
+  });
+  ipcMain.handle('delete-note', async (_event, id: string) => {
+    notesStore.remove(id);
+    const mainWin = getMainWindow();
+    if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('notes-updated');
+  });
+  ipcMain.handle('reorder-notes', async (_event, ids: string[]) => {
+    notesStore.reorder(ids);
+  });
+
+  // Feed
+  ipcMain.handle('get-feed', (_event, limit?: number, before?: string, filter?: string, sortBy?: string) => {
+    return feedStore.getItems(limit, before, filter, sortBy);
+  });
+
+  ipcMain.handle('delete-feed-item', async (_event, id: string) => {
+    feedStore.removeItem(id);
+    return true;
+  });
+
+  ipcMain.handle('clear-feed', async () => {
+    feedStore.clearAll();
+    return true;
+  });
+
+  ipcMain.handle('export-feed-item', async (_event, item: any, format: 'md' | 'txt') => {
+    return feedStore.exportItemAsFile(item, format);
+  });
+
+  ipcMain.handle('open-feed-item-file', async (_event, refId: string) => {
+    return feedStore.openItemFile(refId);
+  });
+
+  // Chips
+  ipcMain.handle('get-chips', () => chipStore.getAll());
+  ipcMain.handle('add-chip', (_event, name: string, color: string) => chipStore.add(name, color));
+  ipcMain.handle('remove-chip', (_event, id: string) => { chipStore.remove(id); return true; });
+  ipcMain.handle('update-chip', (_event, id: string, name: string, color: string) => { chipStore.update(id, name, color); return true; });
+
+  // Show JOT tab
+  ipcMain.handle('show-jot', () => {
+    showJotTab();
+  });
+
+  // Model management — Parakeet TDT v3 0.6B INT8
+  const modelsDir = join(app.getPath('userData'), 'models');
+  const MODEL_FILES = [
+    { name: 'encoder-model.int8.onnx', minSize: 100_000_000 },
+    { name: 'decoder_joint-model.int8.onnx', minSize: 1_000_000 },
+    { name: 'nemo128.onnx', minSize: 10_000 },
+    { name: 'vocab.txt', minSize: 1_000 },
+  ];
+
+  ipcMain.handle('get-model-status', async () => {
+    for (const mf of MODEL_FILES) {
+      const fp = join(modelsDir, mf.name);
+      if (!existsSync(fp)) return { status: 'not-installed', path: '' };
+      try {
+        const s = await stat(fp);
+        if (s.size < mf.minSize) {
+          try { await unlink(fp); } catch { /* ignore */ }
+          return { status: 'not-installed', path: '' };
+        }
+      } catch {
+        return { status: 'error', path: fp, message: `Cannot read ${mf.name}` };
+      }
+    }
+    return { status: 'installed', path: modelsDir };
+  });
+
+  ipcMain.handle('get-hostname', () => {
+    const os = require('os');
+    return os.hostname();
+  });
+
+  ipcMain.handle('download-model', async () => {
+    if (!existsSync(modelsDir)) {
+      await mkdir(modelsDir, { recursive: true });
+    }
+
+    const baseUrl = 'https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main';
+    const files = [
+      { name: 'encoder-model.int8.onnx', url: `${baseUrl}/encoder-model.int8.onnx` },
+      { name: 'decoder_joint-model.int8.onnx', url: `${baseUrl}/decoder_joint-model.int8.onnx` },
+      { name: 'nemo128.onnx', url: `${baseUrl}/nemo128.onnx` },
+      { name: 'vocab.txt', url: `${baseUrl}/vocab.txt` },
+    ];
+
+    const https = require('https');
+    const http = require('http');
+
+    const downloadFile = (fileUrl: string, destPath: string): Promise<void> => {
+      return new Promise((res, rej) => {
+        const dl = (url: string, redir = 0): void => {
+          if (redir > 5) { rej(new Error('Too many redirects')); return; }
+          const client = url.startsWith('https') ? https : http;
+          client.get(url, (response: any) => {
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+              response.resume();
+              dl(response.headers.location, redir + 1);
+              return;
+            }
+            if (response.statusCode !== 200) {
+              response.resume();
+              rej(new Error(`HTTP ${response.statusCode}`));
+              return;
+            }
+            const total = parseInt(response.headers['content-length'] || '0', 10);
+            let downloaded = 0;
+            const fs = createWriteStream(destPath);
+            response.on('data', (chunk: Buffer) => {
+              downloaded += chunk.length;
+              fs.write(chunk);
+              const mainWin = getMainWindow();
+              if (mainWin && !mainWin.isDestroyed()) {
+                mainWin.webContents.send('model-download-progress', {
+                  downloaded, total,
+                  percent: total > 0 ? Math.round((downloaded / total) * 100) : 0,
+                });
+              }
+            });
+            response.on('end', () => { fs.end(() => res()); });
+            response.on('error', (err: Error) => { fs.end(); rej(err); });
+          }).on('error', (err: Error) => rej(err));
+        };
+        dl(fileUrl);
+      });
+    };
+
+    for (const f of files) {
+      await log(`Downloading ${f.name}...`);
+      await downloadFile(f.url, join(modelsDir, f.name));
+      await log(`Downloaded ${f.name}`);
+    }
+
+    return modelsDir;
+  });
+}
+
+app.whenReady().then(async () => {
+  await log('QUENbot starting...');
+
+  session.defaultSession.setPermissionRequestHandler((_wc, _perm, callback) => {
+    callback(true);
+  });
+  session.defaultSession.setPermissionCheckHandler(() => true);
+
+  await ensureRecordingsDir();
+  notesStore.init();
+  chipStore.init();
+  feedStore.init();
+  registerIPC();
+  createTray();
+  await log('Tray created');
+
+  setStealthCallbacks(startStealthRecording, stopStealthRecording);
+  setOnWidgetClosed(resetRecordingState);
+  setQuickNoteCallback(showJotTab);
+  setTranscribeCallbacks(startTranscription, stopTranscription);
+
+  const settings = loadSettings();
+  if (settings.hotkeys) loadHotkeyConfig(settings.hotkeys as any);
+
+  try {
+    initShortcuts();
+    await log('Shortcuts initialized');
+  } catch (err) {
+    await log(`Shortcuts init FAILED: ${err}`);
+  }
+
+  await log('QUENbot ready. Log: ' + logFile);
+});
+
+app.on('window-all-closed', () => { /* tray app */ });
+
+app.on('before-quit', () => {
+  try { stopShortcuts(); } catch { /* ignore */ }
+  BrowserWindow.getAllWindows().forEach((w) => {
+    try { w.destroy(); } catch { /* ignore */ }
+  });
+});

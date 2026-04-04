@@ -1,0 +1,201 @@
+/* Chip bar - positioned at bottom-left of jot tab */
+.chip-bar-trigger {
+  position: absolute;
+  bottom: 36px;
+  left: 16px;
+  z-index: 10;
+}
+
+.chip-trigger-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border-dim);
+  color: var(--primary);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chip-trigger-icon:hover {
+  border-color: var(--primary);
+  transform: scale(1.1);
+}
+
+.chip-bar {
+  position: absolute;
+  bottom: 36px;
+  left: 16px;
+  z-index: 10;
+}
+
+.chip-bar-panel {
+  background: var(--surface);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  padding: 8px;
+  min-width: 160px;
+  max-width: 220px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.chip-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.chip-bar-title {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.chip-bar-add-btn {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.chip-bar-add-btn:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+/* Create form */
+.chip-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-dim);
+  margin-bottom: 6px;
+}
+
+.chip-name-input {
+  padding: 3px 6px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  outline: none;
+}
+
+.chip-name-input:focus { border-color: var(--border); }
+
+.chip-color-picker {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chip-color-opt {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chip-color-opt:hover { transform: scale(1.2); }
+.chip-color-opt.active { border-color: var(--text-bright); }
+
+.chip-create-btn {
+  padding: 3px 8px;
+  background: var(--primary);
+  color: var(--text-bright);
+  border: none;
+  border-radius: 3px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.chip-create-btn:hover { background: var(--primary-hover); }
+
+/* Chip list */
+.chip-bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chip-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chip-item:hover { background: var(--bg); }
+
+.chip-item.attached {
+  background: rgba(154, 36, 36, 0.1);
+}
+
+.chip-item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip-item-name {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text);
+  flex: 1;
+}
+
+.chip-item-check {
+  font-size: 10px;
+  color: #2ea043;
+  flex-shrink: 0;
+}
+
+.chip-item-delete {
+  width: 14px;
+  height: 14px;
+  border: none;
+  background: transparent;
+  color: var(--border);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.chip-item:hover .chip-item-delete { opacity: 1; }
+.chip-item-delete:hover { color: var(--primary); background: rgba(154, 36, 36, 0.15); }

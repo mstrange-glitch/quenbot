@@ -1,7 +1,7 @@
 import { app, ipcMain, BrowserWindow, session, net, clipboard } from 'electron';
 import { readdir, stat, readFile, appendFile, writeFile, unlink, rename as fsRename, mkdir } from 'fs/promises';
 import { join, dirname, extname, resolve } from 'path';
-import { existsSync, readFileSync, createWriteStream } from 'fs';
+import { existsSync, readFileSync, writeFileSync, createWriteStream } from 'fs';
 import { createTray } from './tray';
 import { createMainWindow, getMainWindow, setOnWidgetClosed, setAlwaysOnTop, setMiniMode, showWidgetPreview, hideWidgetPreview, updateWidgetPreview } from './windows';
 import { ensureRecordingsDir, getRecordingsDir, saveRecording } from './audio-saver';

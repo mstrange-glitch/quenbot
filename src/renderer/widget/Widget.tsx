@@ -231,18 +231,13 @@ export const Widget: React.FC = () => {
       let offset = 0;
       for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
 
-      setTranscriptText('transcribing...');
       try {
         const result = await (window.quenbot as any).transcribeAudio(merged.buffer, sampleRateRef.current);
         transcriptRef.current = result || '';
-        setTranscriptText(result || '(no speech detected)');
         console.log('[Widget] Transcript:', result);
       } catch (err) {
         console.error('[Widget] Transcription failed:', err);
-        setTranscriptText('transcription failed');
       }
-    } else {
-      setTranscriptText('(no audio captured)');
     }
 
     chunksRef.current = [];
@@ -281,16 +276,8 @@ export const Widget: React.FC = () => {
 
   if (mode === 'transcribe') {
     return (
-      <div className="widget-container widget-transcribe">
-        <div className="widget-header">
-          <div className="rec-indicator">
-            <div className="rec-dot" style={{ background: '#2ea043' }} />
-            <span className="rec-label" style={{ color: '#2ea043' }}>VTT</span>
-          </div>
-          {transcriptText && <div className="widget-transcript">{transcriptText}</div>}
-        </div>
-        {!transcriptText && <canvas ref={canvasRef} className="widget-waveform" width="180" height="28" />}
-        {error && <div style={{ color: '#9A2424', fontSize: '9px', textAlign: 'center' }}>{error}</div>}
+      <div className="widget-container">
+        <canvas ref={canvasRef} className="widget-waveform" width="180" height="28" />
       </div>
     );
   }

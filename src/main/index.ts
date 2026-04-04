@@ -359,24 +359,91 @@ function registerIPC(): void {
   });
 
   // Transcription via Python onnx-asr
-  const vttScriptPath = join(app.getPath('userData'), 'vtt_transcribe.py');
+  // Persistent Python VTT daemon — model loads once, stays in memory
+  const vttDaemonPath = join(app.getPath('userData'), 'vtt_daemon.py');
+  const { spawn } = require('child_process');
+  let vttProcess: any = null;
+  let vttReady = false;
+  let vttPending: { resolve: (text: string) => void; reject: (err: Error) => void } | null = null;
 
-  // Write helper script
-  const vttScript = [
-    'import onnx_asr, wave, numpy as np, sys, json',
-    'model = onnx_asr.load_model("istupakov/parakeet-tdt-0.6b-v3-onnx", quantization="int8")',
-    'wf = wave.open(sys.argv[1], "rb")',
-    'sr = wf.getframerate()',
-    'frames = wf.readframes(wf.getnframes())',
-    'wf.close()',
-    'samples = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0',
-    'result = model.recognize(samples, sample_rate=sr)',
-    'print(json.dumps({"text": result}))',
-  ].join('\n');
-  try { writeFileSync(vttScriptPath, vttScript); } catch {}
+  const vttDaemonScript = `
+import onnx_asr, wave, numpy as np, sys, json, os
+sys.stdout.reconfigure(line_buffering=True)
+print(json.dumps({"status": "loading"}), flush=True)
+model = onnx_asr.load_model("istupakov/parakeet-tdt-0.6b-v3-onnx", quantization="int8")
+print(json.dumps({"status": "ready"}), flush=True)
+while True:
+    try:
+        line = input()
+        req = json.loads(line)
+        wav_path = req["wav"]
+        wf = wave.open(wav_path, "rb")
+        sr = wf.getframerate()
+        frames = wf.readframes(wf.getnframes())
+        wf.close()
+        samples = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+        result = model.recognize(samples, sample_rate=sr)
+        print(json.dumps({"text": result}), flush=True)
+        try: os.unlink(wav_path)
+        except: pass
+    except EOFError:
+        break
+    except Exception as e:
+        print(json.dumps({"error": str(e)}), flush=True)
+`.trim();
+  try { writeFileSync(vttDaemonPath, vttDaemonScript); } catch {}
+
+  function startVttDaemon(): void {
+    if (vttProcess) return;
+    vttReady = false;
+    vttProcess = spawn('python', [vttDaemonPath], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+
+    let buffer = '';
+    vttProcess.stdout.on('data', (data: Buffer) => {
+      buffer += data.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line.trim());
+          if (msg.status === 'ready') {
+            vttReady = true;
+            log('VTT daemon ready (model loaded)');
+          } else if (msg.status === 'loading') {
+            log('VTT daemon loading model...');
+          } else if (msg.text !== undefined && vttPending) {
+            vttPending.resolve(msg.text || '');
+            vttPending = null;
+          } else if (msg.error && vttPending) {
+            vttPending.reject(new Error(msg.error));
+            vttPending = null;
+          }
+        } catch { /* ignore parse errors */ }
+      }
+    });
+
+    vttProcess.stderr.on('data', (data: Buffer) => {
+      // Ignore stderr noise from model loading
+    });
+
+    vttProcess.on('exit', () => {
+      vttProcess = null;
+      vttReady = false;
+      if (vttPending) {
+        vttPending.reject(new Error('VTT daemon exited'));
+        vttPending = null;
+      }
+    });
+  }
+
+  // Start daemon on app launch so model is pre-loaded
+  startVttDaemon();
 
   ipcMain.handle('transcribe-audio', async (_event, audioData: ArrayBuffer, sampleRate: number) => {
-    const { execSync } = require('child_process');
     const os = require('os');
     const tempWav = join(os.tmpdir(), `quenbot_vtt_${Date.now()}.wav`);
 
@@ -404,24 +471,34 @@ function registerIPC(): void {
       wavBuf.writeInt16LE(Math.round(s < 0 ? s * 0x8000 : s * 0x7FFF), offset);
       offset += 2;
     }
-    const { writeFileSync: wfs, unlinkSync } = require('fs');
-    wfs(tempWav, wavBuf);
+    writeFileSync(tempWav, wavBuf);
 
-    try {
-      const result = execSync(`python "${vttScriptPath}" "${tempWav}"`, {
-        timeout: 60000,
-        encoding: 'utf-8',
-        windowsHide: true,
+    // Ensure daemon is running
+    if (!vttProcess) startVttDaemon();
+
+    // Wait for daemon to be ready (max 30s)
+    if (!vttReady) {
+      await new Promise<void>((resolve) => {
+        const check = setInterval(() => { if (vttReady) { clearInterval(check); resolve(); } }, 100);
+        setTimeout(() => { clearInterval(check); resolve(); }, 30000);
       });
-      const parsed = JSON.parse(result.trim());
-      await log(`VTT: "${parsed.text}"`);
-      return parsed.text || '';
-    } catch (err: any) {
-      await log(`VTT failed: ${err.message}`);
-      throw new Error('Transcription failed');
-    } finally {
-      try { unlinkSync(tempWav); } catch {}
     }
+
+    if (!vttProcess || !vttReady) {
+      throw new Error('VTT daemon not available');
+    }
+
+    return new Promise<string>((resolve, reject) => {
+      vttPending = { resolve, reject };
+      vttProcess.stdin.write(JSON.stringify({ wav: tempWav }) + '\n');
+      // Timeout after 15s
+      setTimeout(() => {
+        if (vttPending) {
+          vttPending.reject(new Error('Transcription timeout'));
+          vttPending = null;
+        }
+      }, 15000);
+    });
   });
 
   // Model management — Parakeet TDT v3 0.6B INT8

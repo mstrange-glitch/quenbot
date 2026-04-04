@@ -6,6 +6,8 @@
 
 *Push-to-record · Rich text notes · Voice transcription · Project tags · Activity log · LAN sync · Mini mode — all from one compact desktop tool.*
 
+> ***Quen*** — from *Quenta* (High Elvish): "tale," "account," or "narrative." Because every recording, every note, every transcription is part of a story worth keeping.
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-40-47848F?style=flat-square&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
@@ -299,6 +301,16 @@ cd quenbot
 npm install
 npm run dev
 ```
+
+---
+
+## Acknowledgments
+
+- **[@mstrange-glitch](https://github.com/mstrange-glitch)** — The namesake. *Quenta* was her word. This one's for you.
+- **[RECbot](https://github.com/enkode/recbot)** and **[jotbot](https://github.com/enkode/jotbot)** — The two apps that became QUENbot
+- **[Handy](https://github.com/cjpais/Handy)** — Inspiration for the push-to-transcribe workflow and local STT architecture
+- **[NVIDIA Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)** — Speech-to-text model powering VTT
+- **[TipTap](https://tiptap.dev/)** — The rich text editor behind the JOT tab
 
 ---
 

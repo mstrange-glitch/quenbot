@@ -130,31 +130,24 @@ function stopTranscription(): void {
 
   const onResult = (_event: Electron.IpcMainEvent, text: string): void => {
     if (text && text.trim()) {
-      // Save original clipboard, set transcript, paste, restore
-      const originalClipboard = clipboard.readText();
       clipboard.writeText(text.trim());
+      log(`VTT to clipboard: "${text.trim().substring(0, 80)}"`);
 
-      // Brief delay then simulate Ctrl+V paste
-      setTimeout(() => {
-        const { keyboard } = require('uiohook-napi');
-        // Use Electron's native keyboard simulation isn't available,
-        // so we just leave it on clipboard. User can Ctrl+V manually.
-        // The transcript is on the clipboard ready to paste.
-        log(`Transcription complete: "${text.trim().substring(0, 50)}..."`);
-
-        // Notify main window
-        const mainWin = getMainWindow();
-        if (mainWin && !mainWin.isDestroyed()) {
-          mainWin.webContents.send('transcription-complete', text.trim());
-        }
-      }, 100);
+      // Simulate Ctrl+V paste via PowerShell
+      try {
+        const { execSync } = require('child_process');
+        execSync('powershell -Command "Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 200; [System.Windows.Forms.SendKeys]::SendWait(\'^v\')"', {
+          windowsHide: true,
+          timeout: 3000,
+        });
+      } catch { /* paste simulation failed, text is still on clipboard */ }
     }
     cleanup();
   };
 
   ipcMain.once('transcription-result', onResult);
   win.webContents.send('stop-transcription');
-  const fallback = setTimeout(cleanup, 10000);
+  const fallback = setTimeout(cleanup, 30000);
 }
 
 // Settings
@@ -363,6 +356,72 @@ function registerIPC(): void {
   // Show JOT tab
   ipcMain.handle('show-jot', () => {
     showJotTab();
+  });
+
+  // Transcription via Python onnx-asr
+  const vttScriptPath = join(app.getPath('userData'), 'vtt_transcribe.py');
+
+  // Write helper script
+  const vttScript = [
+    'import onnx_asr, wave, numpy as np, sys, json',
+    'model = onnx_asr.load_model("istupakov/parakeet-tdt-0.6b-v3-onnx", quantization="int8")',
+    'wf = wave.open(sys.argv[1], "rb")',
+    'sr = wf.getframerate()',
+    'frames = wf.readframes(wf.getnframes())',
+    'wf.close()',
+    'samples = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0',
+    'result = model.recognize(samples, sample_rate=sr)',
+    'print(json.dumps({"text": result}))',
+  ].join('\n');
+  try { writeFileSync(vttScriptPath, vttScript); } catch {}
+
+  ipcMain.handle('transcribe-audio', async (_event, audioData: ArrayBuffer, sampleRate: number) => {
+    const { execSync } = require('child_process');
+    const os = require('os');
+    const tempWav = join(os.tmpdir(), `quenbot_vtt_${Date.now()}.wav`);
+
+    // Encode as WAV
+    const samples = new Float32Array(audioData);
+    const bytesPerSample = 2;
+    const dataSize = samples.length * bytesPerSample;
+    const wavBuf = Buffer.alloc(44 + dataSize);
+    wavBuf.write('RIFF', 0);
+    wavBuf.writeUInt32LE(36 + dataSize, 4);
+    wavBuf.write('WAVE', 8);
+    wavBuf.write('fmt ', 12);
+    wavBuf.writeUInt32LE(16, 16);
+    wavBuf.writeUInt16LE(1, 20);
+    wavBuf.writeUInt16LE(1, 22);
+    wavBuf.writeUInt32LE(sampleRate, 24);
+    wavBuf.writeUInt32LE(sampleRate * 2, 28);
+    wavBuf.writeUInt16LE(2, 32);
+    wavBuf.writeUInt16LE(16, 34);
+    wavBuf.write('data', 36);
+    wavBuf.writeUInt32LE(dataSize, 40);
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      wavBuf.writeInt16LE(Math.round(s < 0 ? s * 0x8000 : s * 0x7FFF), offset);
+      offset += 2;
+    }
+    const { writeFileSync: wfs, unlinkSync } = require('fs');
+    wfs(tempWav, wavBuf);
+
+    try {
+      const result = execSync(`python "${vttScriptPath}" "${tempWav}"`, {
+        timeout: 60000,
+        encoding: 'utf-8',
+        windowsHide: true,
+      });
+      const parsed = JSON.parse(result.trim());
+      await log(`VTT: "${parsed.text}"`);
+      return parsed.text || '';
+    } catch (err: any) {
+      await log(`VTT failed: ${err.message}`);
+      throw new Error('Transcription failed');
+    } finally {
+      try { unlinkSync(tempWav); } catch {}
+    }
   });
 
   // Model management — Parakeet TDT v3 0.6B INT8

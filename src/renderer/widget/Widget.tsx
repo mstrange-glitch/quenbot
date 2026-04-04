@@ -160,79 +160,101 @@ export const Widget: React.FC = () => {
     try { window.quenbot.signalSaveComplete(); } catch { /* ignore */ }
   }, []);
 
-  // Transcription (Handy-style speech-to-text)
-  const startTranscription = useCallback(() => {
-    console.log('[Widget] Starting transcription...');
+  // Transcription (VTT — record audio, send to main for onnx-asr)
+  const startTranscription = useCallback(async () => {
+    console.log('[Widget] Starting VTT recording...');
     setTranscriptText('');
-    setIsRecording(true);
-
-    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    if (!SpeechRecognition) {
-      setError('Speech recognition not available');
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    let finalTranscript = '';
-
-    recognition.onresult = (event: any) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript + ' ';
-        } else {
-          interim += result[0].transcript;
-        }
-      }
-      const combined = (finalTranscript + interim).trim();
-      transcriptRef.current = combined;
-      setTranscriptText(combined);
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error('[Widget] Speech recognition error:', event.error);
-      if (event.error !== 'aborted') {
-        setError(event.error);
-      }
-    };
-
-    recognition.onend = () => {
-      // If still recording, recognition stopped unexpectedly — restart
-      if (recordingRef.current && recognitionRef.current) {
-        try { recognition.start(); } catch { /* ignore */ }
-      }
-    };
-
+    setError('');
     try {
-      recognition.start();
-      recognitionRef.current = recognition;
-      recordingRef.current = true;
-    } catch (err: any) {
-      setError(err.message || 'Failed to start recognition');
-    }
-  }, []);
+      let deviceId: string | undefined;
+      try {
+        const settings = await window.quenbot.getSettings();
+        if (settings?.audioDeviceId) deviceId = settings.audioDeviceId as string;
+      } catch {}
 
-  const stopTranscription = useCallback(() => {
-    console.log('[Widget] Stopping transcription...');
+      const constraints: MediaTrackConstraints = {
+        echoCancellation: false, noiseSuppression: false, autoGainControl: true,
+      };
+      if (deviceId) constraints.deviceId = { exact: deviceId };
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
+        });
+      }
+      streamRef.current = stream;
+
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      sampleRateRef.current = audioContext.sampleRate;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 512;
+      analyserRef.current = analyser;
+      source.connect(analyser);
+
+      const scriptNode = audioContext.createScriptProcessor(8192, 1, 1);
+      scriptNodeRef.current = scriptNode;
+      chunksRef.current = [];
+      scriptNode.onaudioprocess = (e) => {
+        chunksRef.current.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      };
+      source.connect(scriptNode);
+      scriptNode.connect(audioContext.destination);
+
+      recordingRef.current = true;
+      setIsRecording(true);
+      animFrameRef.current = requestAnimationFrame(drawWaveform);
+    } catch (err: any) {
+      console.error('[Widget] VTT recording failed:', err);
+      setError(err.message || 'Mic access failed');
+    }
+  }, [drawWaveform]);
+
+  const stopTranscription = useCallback(async () => {
+    console.log('[Widget] Stopping VTT, processing audio...');
     recordingRef.current = false;
     setIsRecording(false);
 
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch { /* ignore */ }
-      recognitionRef.current = null;
+    if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = null; }
+    if (scriptNodeRef.current) { scriptNodeRef.current.disconnect(); scriptNodeRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+
+    const chunks = chunksRef.current;
+    if (chunks.length > 0) {
+      const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+      const merged = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
+
+      setTranscriptText('transcribing...');
+      try {
+        const result = await (window.quenbot as any).transcribeAudio(merged.buffer, sampleRateRef.current);
+        transcriptRef.current = result || '';
+        setTranscriptText(result || '(no speech detected)');
+        console.log('[Widget] Transcript:', result);
+      } catch (err) {
+        console.error('[Widget] Transcription failed:', err);
+        setTranscriptText('transcription failed');
+      }
+    } else {
+      setTranscriptText('(no audio captured)');
     }
 
-    // Send final transcript to main process (use ref to avoid stale closure)
-    const text = transcriptRef.current;
-    console.log('[Widget] Final transcript:', text);
+    chunksRef.current = [];
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try { await audioContextRef.current.close(); } catch {}
+      audioContextRef.current = null;
+    }
+
+    // Send result to main for clipboard
     try {
-      (window.quenbot as any).sendTranscriptionResult(text);
-    } catch { /* ignore */ }
+      (window.quenbot as any).sendTranscriptionResult(transcriptRef.current);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -263,14 +285,11 @@ export const Widget: React.FC = () => {
         <div className="widget-header">
           <div className="rec-indicator">
             <div className="rec-dot" style={{ background: '#2ea043' }} />
-            <span className="rec-label" style={{ color: '#2ea043' }}>STT</span>
+            <span className="rec-label" style={{ color: '#2ea043' }}>VTT</span>
           </div>
+          {transcriptText && <div className="widget-transcript">{transcriptText}</div>}
         </div>
-        {transcriptText ? (
-          <div className="widget-transcript">{transcriptText}</div>
-        ) : (
-          <div className="widget-transcript widget-transcript-hint">listening...</div>
-        )}
+        {!transcriptText && <canvas ref={canvasRef} className="widget-waveform" width="180" height="28" />}
         {error && <div style={{ color: '#9A2424', fontSize: '9px', textAlign: 'center' }}>{error}</div>}
       </div>
     );

@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('quenbot', {
   sendTranscriptionResult: (text: string) => {
     ipcRenderer.send('transcription-result', text);
   },
+  transcribeAudio: (buffer: ArrayBuffer, sampleRate: number) => ipcRenderer.invoke('transcribe-audio', buffer, sampleRate),
 
   // Playback
   getRecordings: () => ipcRenderer.invoke('get-recordings'),

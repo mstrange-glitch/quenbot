@@ -276,3 +276,54 @@
   border-radius: 50%;
   background: var(--primary);
 }
+
+/* mellon */
+.mellon-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: mellon-fade 0.8s ease-out;
+}
+
+@keyframes mellon-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mellon-art {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 9px !important;
+  line-height: 1.1 !important;
+  color: #c0a050;
+  text-shadow: 0 0 8px rgba(192, 160, 80, 0.4);
+  white-space: pre;
+  text-align: center;
+  max-width: 90vw;
+  max-height: 70vh;
+  overflow: hidden;
+  transform-origin: center center;
+}
+
+.mellon-text {
+  margin-top: 16px;
+  font-family: var(--font-digital);
+  font-size: 18px;
+  letter-spacing: 8px;
+  color: #c0a050;
+  text-shadow: 0 0 12px rgba(192, 160, 80, 0.6);
+  animation: mellon-glow 2s ease-in-out infinite;
+}
+
+@keyframes mellon-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}

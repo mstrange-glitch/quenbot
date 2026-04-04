@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -81,7 +81,58 @@ function markdownToHtml(md: string): string {
   return html.join('');
 }
 
+// mellon
+const _g = [
+  '   _             _,-----------._        ___',
+  '  (_,.-      _,-\'_,-----------._`-._    _)_)',
+  '     |     ,\'_,-\'  ___________  `-._`.',
+  '    `\'   ,\',\'  _,-\'___________`-._  `.`.',
+  '        ,\',\'  ,\'_,-\'     .     `-._`.  `.`.',
+  '       /,\'  ,\',\'        >|<        `.`.  `.\\',
+  '      //  ,\',\'      ><  ,^.  ><      `.`.  \\\\',
+  '     //  /,\'      ><   / | \\   ><      `.\\  \\\\',
+  '    //  //      ><    \\/\\^/\\/    ><      \\\\  \\\\',
+  '   ;;  ;;              `---\'              ::  ::',
+  '   ||  ||              (____              ||  ||',
+  '  _||__||_            ,\'----.            _||__||_',
+  ' (o.____.o)____        `---\'        ____(o.____.o)',
+  '   |    | /,--.)                   (,--.\\  |    |',
+  '   |    |((  -`___               ___`   ))|    |',
+  '   |    | \\\\,\'\',  `.           .\'  .``.// |    |',
+  '   |    |  // (___,\'.         .\'.___) \\\\  |    |',
+  '  /|    | ;;))  ____) .     . (____  ((\\\\ |    |\\',
+  '  \\|.__ | ||/ .\'.--.\\/(       `/,--.\'. \\;: | __,|;',
+  '   |`-,`;.| :/ /,\'  `)-\'   `-(\'  `.\\  \\: |.;\',-\'|',
+  '   |   `..  \' / \\__,\'         `.__/ \\  `  ,.\'   |',
+  '   |    |,\\  /,                     ,\\  /,|    |',
+  '   |    ||: : )          .          ( : :||    |',
+  '  /|    |:; |/  .      ./|\\,      ,  \\| :;|    |\\',
+  '  \\|.__ |/  :  ,/-    <--:-->    ,\\.  ;  \\| __,|;',
+  '   |`-.``:   `\'/-.     \'\\|/`     ,-\\`;   ;\'\' ,-\'|',
+  '   |   `..   ,\' `\'       \'       `  `.   ,.\'   |',
+  '   |    ||  :                         :  ||    |',
+  '   |    ||  |                         |  ||    |',
+  '   |    ||  |                         |  ||    |',
+  '   |    |\'  |            _            |  `|    |',
+  '   |    |   |          \'|))           |   |    |',
+  '   ;____:   `._        `\'           _,\'   ;____:',
+  '  {______}     \\___________________/     {______}',
+  '  |______|_______________________________|______|',
+];
+
 export const NoteEditor: React.FC<NoteEditorProps> = ({ content, locked, onChange }) => {
+  const [doorOpen, setDoorOpen] = useState(false);
+
+  const checkPassphrase = useCallback((html: string) => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = (tmp.textContent || '').trim();
+    if (text === 'Speak friend, and') {
+      setDoorOpen(true);
+      setTimeout(() => setDoorOpen(false), 8000);
+    }
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -124,6 +175,21 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ content, locked, onChang
     },
   });
 
+  // Listen for Enter key to check passphrase
+  useEffect(() => {
+    if (!editor) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        checkPassphrase(editor.getHTML());
+      }
+    };
+    const el = document.querySelector('.note-editor');
+    if (el) {
+      el.addEventListener('keydown', handleKey as EventListener);
+      return () => el.removeEventListener('keydown', handleKey as EventListener);
+    }
+  }, [editor, checkPassphrase]);
+
   useEffect(() => {
     if (editor) {
       editor.setEditable(!locked);
@@ -133,6 +199,23 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ content, locked, onChang
   return (
     <div className={`note-editor-wrapper${locked ? ' locked' : ''}`}>
       <EditorContent editor={editor} className="note-editor" />
+      {doorOpen && (
+        <div className="mellon-overlay" onClick={() => setDoorOpen(false)}>
+          <pre className="mellon-art" ref={(el) => {
+            if (!el) return;
+            // Auto-scale to fit window regardless of UI text size
+            const maxW = window.innerWidth * 0.88;
+            const maxH = window.innerHeight * 0.7;
+            // The art is 51 chars wide, 35 lines tall at the chosen font
+            for (let sz = 14; sz >= 5; sz--) {
+              el.style.fontSize = sz + 'px';
+              el.style.lineHeight = '1.1';
+              if (el.scrollWidth <= maxW && el.scrollHeight <= maxH) break;
+            }
+          }}>{_g.join('\n')}</pre>
+          <div className="mellon-text">Mellon.</div>
+        </div>
+      )}
     </div>
   );
 };

@@ -420,7 +420,13 @@ function registerIPC(): void {
           client.get(url, (response: any) => {
             if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
               response.resume();
-              dl(response.headers.location, redir + 1);
+              // Resolve relative redirect URLs against the original
+              let redirectUrl = response.headers.location;
+              if (!redirectUrl.startsWith('http')) {
+                const parsed = new (require('url').URL)(url);
+                redirectUrl = `${parsed.protocol}//${parsed.host}${redirectUrl}`;
+              }
+              dl(redirectUrl, redir + 1);
               return;
             }
             if (response.statusCode !== 200) {
@@ -450,9 +456,32 @@ function registerIPC(): void {
       });
     };
 
+    // Known approximate sizes for progress calculation (INT8 model)
+    const fileSizes: Record<string, number> = {
+      'encoder-model.int8.onnx': 652_000_000,
+      'decoder_joint-model.int8.onnx': 18_200_000,
+      'nemo128.onnx': 140_000,
+      'vocab.txt': 94_000,
+    };
+    const totalAllFiles = Object.values(fileSizes).reduce((a, b) => a + b, 0);
+    let completedBytes = 0;
+
     for (const f of files) {
       await log(`Downloading ${f.name}...`);
+
+      // Send file name progress
+      const mainWin = getMainWindow();
+      if (mainWin && !mainWin.isDestroyed()) {
+        mainWin.webContents.send('model-download-progress', {
+          downloaded: completedBytes,
+          total: totalAllFiles,
+          percent: Math.round((completedBytes / totalAllFiles) * 100),
+          currentFile: f.name,
+        });
+      }
+
       await downloadFile(f.url, join(modelsDir, f.name));
+      completedBytes += fileSizes[f.name] || 0;
       await log(`Downloaded ${f.name}`);
     }
 

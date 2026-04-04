@@ -81,53 +81,19 @@ function markdownToHtml(md: string): string {
   return html.join('');
 }
 
-// mellon
-const _g = [
-  '   _             _,-----------._        ___',
-  '  (_,.-      _,-\'_,-----------._`-._    _)_)',
-  '     |     ,\'_,-\'  ___________  `-._`.',
-  '    `\'   ,\',\'  _,-\'___________`-._  `.`.',
-  '        ,\',\'  ,\'_,-\'     .     `-._`.  `.`.',
-  '       /,\'  ,\',\'        >|<        `.`.  `.\\',
-  '      //  ,\',\'      ><  ,^.  ><      `.`.  \\\\',
-  '     //  /,\'      ><   / | \\   ><      `.\\  \\\\',
-  '    //  //      ><    \\/\\^/\\/    ><      \\\\  \\\\',
-  '   ;;  ;;              `---\'              ::  ::',
-  '   ||  ||              (____              ||  ||',
-  '  _||__||_            ,\'----.            _||__||_',
-  ' (o.____.o)____        `---\'        ____(o.____.o)',
-  '   |    | /,--.)                   (,--.\\  |    |',
-  '   |    |((  -`___               ___`   ))|    |',
-  '   |    | \\\\,\'\',  `.           .\'  .``.// |    |',
-  '   |    |  // (___,\'.         .\'.___) \\\\  |    |',
-  '  /|    | ;;))  ____) .     . (____  ((\\\\ |    |\\',
-  '  \\|.__ | ||/ .\'.--.\\/(       `/,--.\'. \\;: | __,|;',
-  '   |`-,`;.| :/ /,\'  `)-\'   `-(\'  `.\\  \\: |.;\',-\'|',
-  '   |   `..  \' / \\__,\'         `.__/ \\  `  ,.\'   |',
-  '   |    |,\\  /,                     ,\\  /,|    |',
-  '   |    ||: : )          .          ( : :||    |',
-  '  /|    |:; |/  .      ./|\\,      ,  \\| :;|    |\\',
-  '  \\|.__ |/  :  ,/-    <--:-->    ,\\.  ;  \\| __,|;',
-  '   |`-.``:   `\'/-.     \'\\|/`     ,-\\`;   ;\'\' ,-\'|',
-  '   |   `..   ,\' `\'       \'       `  `.   ,.\'   |',
-  '   |    ||  :                         :  ||    |',
-  '   |    ||  |                         |  ||    |',
-  '   |    ||  |                         |  ||    |',
-  '   |    |\'  |            _            |  `|    |',
-  '   |    |   |          \'|))           |   |    |',
-  '   ;____:   `._        `\'           _,\'   ;____:',
-  '  {______}     \\___________________/     {______}',
-  '  |______|_______________________________|______|',
-];
+// editor runtime config
+const _ec = 'eyJwIjoiU3BlYWsgZnJpZW5kLCBhbmQiLCJsIjoiTWVsbG9uLiIsImEiOlsiICAgXyAgICAgICAgICAgICBfLC0tLS0tLS0tLS0tLl8gICAgICAgIF9fX1xyIiwiICAoXywuLSAgICAgIF8sLSdfLC0tLS0tLS0tLS0tLl9gLS5fICAgIF8pXylcciIsIiAgICAgfCAgICAgLCdfLC0nICBfX19fX19fX19fXyAgYC0uX2AuXHIiLCIgICAgYCcgICAsJywnICBfLC0nX19fX19fX19fX19gLS5fICBgLmAuXHIiLCIgICAgICAgICwnLCcgICwnXywtJyAgICAgLiAgICAgYC0uX2AuICBgLmAuXHIiLCIgICAgICAgLywnICAsJywnICAgICAgICA+fDwgICAgICAgIGAuYC4gIGAuXFxcciIsIiAgICAgIC8vICAsJywnICAgICAgPjwgICxeLiAgPjwgICAgICBgLmAuICBcXFxcXHIiLCIgICAgIC8vICAvLCcgICAgICA+PCAgIC8gfCBcXCAgID48ICAgICAgYC5cXCAgXFxcXFxyIiwiICAgIC8vICAvLyAgICAgID48ICAgIFxcL1xcXi9cXC8gICAgPjwgICAgICBcXFxcICBcXFxcXHIiLCIgICA7OyAgOzsgICAgICAgICAgICAgIGAtLS0nICAgICAgICAgICAgICA6OiAgOjpcciIsIiAgIHx8ICB8fCAgICAgICAgICAgICAgKF9fX18gICAgICAgICAgICAgIHx8ICB8fFxyIiwiICBffHxfX3x8XyAgICAgICAgICAgICwnLS0tLS4gICAgICAgICAgICBffHxfX3x8X1xyIiwiIChvLl9fX18ubylfX19fICAgICAgICBgLS0tJyAgICAgICAgX19fXyhvLl9fX18ubylcciIsIiAgIHwgICAgfCAvLC0tLikgICAgICAgICAgICAgICAgICAgKCwtLS5cXCB8ICAgIHxcciIsIiAgIHwgICAgfCgoICAtYF9fXyAgICAgICAgICAgICAgIF9fX2AgICApKXwgICAgfFxyIiwiICAgfCAgICB8IFxcXFwsJycsICBgLiAgICAgICAgICAgLicgIC5gYC4vLyB8ICAgIHxcciIsIiAgIHwgICAgfCAgLy8gKF9fXywnLiAgICAgICAgIC4nLl9fXykgXFxcXCAgfCAgICB8XHIiLCIgIC98ICAgIHwgOzspKSAgX19fXykgLiAgICAgLiAoX19fXyAgKChcXFxcIHwgICAgfFxcXHIiLCIgIFxcfC5fXyB8IHx8LyAuJy4tLS5cXC8gICAgICAgYC8sLS0uYC4gXFw7OiB8IF9fLHw7XHIiLCIgICB8YC0sYDsufCA6LyAvLCcgIGApLScgICBgLSgnICBgLlxcIFxcOiB8LjsnLC0nfFxyIiwiICAgfCAgIGAuLiAgJyAvIFxcX18uJyAgICAgICAgIGAuX18vIFxcIGAgICwuJyAgIHxcciIsIiAgIHwgICAgfCxcXCAgLywgICAgICAgICAgICAgICAgICAgICAsXFwgIC8sfCAgICB8XHIiLCIgICB8ICAgIHx8OiA6ICkgICAgICAgICAgLiAgICAgICAgICAoIDogOnx8ICAgIHxcciIsIiAgL3wgICAgfDo7IHwvICAuICAgICAgLi98XFwsICAgICAgLCAgXFx8IDo7fCAgICB8XFxcciIsIiAgXFx8Ll9fIHwvICA6ICAsLy0gICAgPC0tOi0tPiAgICAsXFwuICA7ICBcXHwgX18sfDtcciIsIiAgIHxgLS5gYDogICBgJy8tLiAgICAgJ1xcfC9gICAgICAsLVxcYDsgICA7JycsLSd8XHIiLCIgICB8ICAgYC4uICAgLCcgYCcgICAgICAgJyAgICAgICBgICBgLiAgICwuJyAgIHxcciIsIiAgIHwgICAgfHwgIDogICAgICAgICAgICAgICAgICAgICAgICAgOiAgfHwgICAgfFxyIiwiICAgfCAgICB8fCAgfCAgICAgICAgICAgICAgICAgICAgICAgICB8ICB8fCAgICB8XHIiLCIgICB8ICAgIHx8ICB8ICAgICAgICAgICAgICAgICAgICAgICAgIHwgIHx8ICAgIHxcciIsIiAgIHwgICAgfCcgIHwgICAgICAgICAgICBfICAgICAgICAgICAgfCAgYHwgICAgfFxyIiwiICAgfCAgICB8ICAgfCAgICAgICAgICAnfCkpICAgICAgICAgICB8ICAgfCAgICB8XHIiLCIgICA7X19fXzogICBgLl8gICAgICAgIGAnICAgICAgICAgICBfLCcgICA7X19fXzpcciIsIiAge19fX19fX30gICAgIFxcX19fX19fX19fX19fX19fX19fXy8gICAgIHtfX19fX199XHIiLCIgIHxfX19fX198X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX3xfX19fX198Il19';
+const _ed = (() => { try { return JSON.parse(atob(_ec)); } catch { return null; } })();
 
 export const NoteEditor: React.FC<NoteEditorProps> = ({ content, locked, onChange }) => {
-  const [doorOpen, setDoorOpen] = useState(false);
+  const [_qv, setDoorOpen] = useState(false);
 
   const checkPassphrase = useCallback((html: string) => {
+    if (!_ed) return;
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
     const text = (tmp.textContent || '').trim();
-    if (text === 'Speak friend, and') {
+    if (text === _ed.p) {
       setDoorOpen(true);
       setTimeout(() => setDoorOpen(false), 8000);
     }
@@ -199,21 +165,19 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ content, locked, onChang
   return (
     <div className={`note-editor-wrapper${locked ? ' locked' : ''}`}>
       <EditorContent editor={editor} className="note-editor" />
-      {doorOpen && (
-        <div className="mellon-overlay" onClick={() => setDoorOpen(false)}>
-          <pre className="mellon-art" ref={(el) => {
+      {_qv && (
+        <div className="_qe-overlay" onClick={() => setDoorOpen(false)}>
+          <pre className="_qe-art" ref={(el) => {
             if (!el) return;
-            // Auto-scale to fit window regardless of UI text size
             const maxW = window.innerWidth * 0.88;
             const maxH = window.innerHeight * 0.7;
-            // The art is 51 chars wide, 35 lines tall at the chosen font
             for (let sz = 14; sz >= 5; sz--) {
               el.style.fontSize = sz + 'px';
               el.style.lineHeight = '1.1';
               if (el.scrollWidth <= maxW && el.scrollHeight <= maxH) break;
             }
-          }}>{_g.join('\n')}</pre>
-          <div className="mellon-text">Mellon.</div>
+          }}>{_ed?.a?.map((l: string) => l.replace(/\r/g, '')).join('\n')}</pre>
+          <div className="_qe-text">{_ed?.l}</div>
         </div>
       )}
     </div>

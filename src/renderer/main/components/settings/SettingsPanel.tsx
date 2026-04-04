@@ -61,6 +61,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
   const [downloadPercent, setDownloadPercent] = useState(0);
   const [downloadedMB, setDownloadedMB] = useState(0);
   const [totalMB, setTotalMB] = useState(0);
+  const [currentFile, setCurrentFile] = useState('');
   const [previewVisible, setPreviewVisible] = useState(false);
   const initialLoadDone = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,6 +141,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
       setDownloadPercent(p.percent);
       setDownloadedMB(Math.round(p.downloaded / 1048576));
       setTotalMB(Math.round(p.total / 1048576));
+      if (p.currentFile) setCurrentFile(p.currentFile);
     });
     return () => { window.quenbot.removeAllListeners('model-download-progress'); };
   }, []);
@@ -285,7 +287,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
               {downloading ? (
                 <div className="model-download-progress">
                   <div className="model-progress-bar"><div className="model-progress-fill" style={{ width: `${downloadPercent}%` }} /></div>
-                  <span className="model-progress-text">{downloadedMB}MB / {totalMB}MB ({downloadPercent}%)</span>
+                  <span className="model-progress-text">
+                    {currentFile && <>{currentFile} — </>}{downloadedMB}MB / {totalMB}MB ({downloadPercent}%)
+                  </span>
                 </div>
               ) : (
                 <>

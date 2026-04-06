@@ -89,6 +89,18 @@ contextBridge.exposeInMainWorld('quenbot', {
   // System
   getHostname: () => ipcRenderer.invoke('get-hostname'),
 
+  // LAN Sync
+  getSyncPeers: () => ipcRenderer.invoke('get-sync-peers'),
+  sendNoteToPeer: (address: string, port: number, note: any) => ipcRenderer.invoke('send-note-to-peer', address, port, note),
+  startLanSync: (name: string, port?: number) => ipcRenderer.invoke('start-lan-sync', name, port),
+  stopLanSync: () => ipcRenderer.invoke('stop-lan-sync'),
+  onSyncPeersChanged: (callback: (peers: any[]) => void) => {
+    ipcRenderer.on('sync-peers-changed', (_event, peers) => callback(peers));
+  },
+  onNoteReceived: (callback: (data: { note: any; from: string }) => void) => {
+    ipcRenderer.on('note-received', (_event, data) => callback(data));
+  },
+
   // Model
   getModelStatus: () => ipcRenderer.invoke('get-model-status'),
   downloadModel: () => ipcRenderer.invoke('download-model'),

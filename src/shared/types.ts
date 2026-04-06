@@ -108,6 +108,12 @@ export interface QuenbotAPI {
   getSettings: () => Promise<AppSettings>;
   saveSettings: (settings: Record<string, unknown>) => Promise<boolean>;
 
+  // LAN Sync
+  getSyncPeers: () => Promise<SyncPeer[]>;
+  sendNoteToPeer: (peerAddress: string, peerPort: number, note: Note) => Promise<boolean>;
+  onSyncPeersChanged: (cb: (peers: SyncPeer[]) => void) => void;
+  onNoteReceived: (cb: (data: { note: Note; from: string }) => void) => void;
+
   // Listeners
   removeAllListeners: (channel: string) => void;
 }

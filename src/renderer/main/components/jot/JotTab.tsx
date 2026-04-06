@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { NoteEditor } from './NoteEditor';
 import { NoteTabs } from './NoteTabs';
 import { ChipBar } from './ChipBar';
+import { ShareButton } from './ShareButton';
 import './jot.css';
 import './chipbar.css';
 
@@ -16,9 +17,18 @@ interface Note {
   chips?: string[];
 }
 
+interface SyncPeer {
+  name: string;
+  address: string;
+  port: number;
+  lastSeen: number;
+}
+
 export const JotTab: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [currentId, setCurrentId] = useState<string>('');
+  const [syncPeers, setSyncPeers] = useState<SyncPeer[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
 
   const loadNotes = useCallback(async () => {
     const loaded = await window.quenbot.getNotes();
@@ -108,6 +118,34 @@ export const JotTab: React.FC = () => {
     window.quenbot.reorderNotes(updated.map(n => n.id));
   }, []);
 
+  // LAN Sync: listen for peers and incoming notes
+  useEffect(() => {
+    const q = window.quenbot as any;
+    q.onSyncPeersChanged?.((peers: SyncPeer[]) => setSyncPeers(peers || []));
+    q.onNoteReceived?.((data: { note: Note; from: string }) => {
+      setToast(`Note received from ${data.from}`);
+      setTimeout(() => setToast(null), 3000);
+    });
+    // Load initial peers
+    q.getSyncPeers?.().then((p: SyncPeer[]) => setSyncPeers(p || [])).catch(() => {});
+    return () => {
+      window.quenbot.removeAllListeners('sync-peers-changed');
+      window.quenbot.removeAllListeners('note-received');
+    };
+  }, []);
+
+  const handleShareNote = useCallback(async (peer: SyncPeer) => {
+    if (!currentNote) return;
+    const q = window.quenbot as any;
+    const ok = await q.sendNoteToPeer?.(peer.address, peer.port, currentNote);
+    if (ok) {
+      setToast(`Sent to ${peer.name}`);
+    } else {
+      setToast(`Failed to send to ${peer.name}`);
+    }
+    setTimeout(() => setToast(null), 3000);
+  }, [currentNote]);
+
   const handleChipToggle = useCallback((chipId: string) => {
     if (!currentNote) return;
     const currentChips = currentNote.chips || [];
@@ -134,8 +172,14 @@ export const JotTab: React.FC = () => {
         )}
       </div>
       {currentNote && (
-        <ChipBar noteChips={currentNote.chips || []} onChipToggle={handleChipToggle} />
+        <div className="jot-toolbar-row">
+          <ChipBar noteChips={currentNote.chips || []} onChipToggle={handleChipToggle} />
+          {syncPeers.length > 0 && (
+            <ShareButton peers={syncPeers} onShare={handleShareNote} />
+          )}
+        </div>
       )}
+      {toast && <div className="jot-toast">{toast}</div>}
       <NoteTabs
         notes={notes}
         currentId={currentId}

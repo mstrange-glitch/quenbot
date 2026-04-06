@@ -277,6 +277,126 @@
   background: var(--primary);
 }
 
+/* Toolbar row (chip bar + share) */
+.jot-toolbar-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.jot-toolbar-row .chip-bar {
+  flex: 1;
+}
+
+/* Share button */
+.share-btn-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--border-dim);
+  padding: 0 8px;
+}
+
+.share-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.share-btn:hover, .share-btn.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(var(--primary-rgb, 154, 36, 36), 0.1);
+}
+
+.share-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  min-width: 160px;
+  background: var(--bg);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 4px 0;
+  margin-bottom: 4px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.share-dropdown-header {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  padding: 4px 10px 6px;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.share-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.share-dropdown-item:hover {
+  background: var(--surface);
+}
+
+.share-peer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ea043;
+  flex-shrink: 0;
+}
+
+.share-peer-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Toast notification */
+.jot-toast {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text);
+  z-index: 200;
+  animation: jot-toast-in 0.2s ease-out;
+}
+
+@keyframes jot-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* overlay */
 ._qe-overlay {
   position: fixed;

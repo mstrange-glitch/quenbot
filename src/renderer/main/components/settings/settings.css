@@ -399,6 +399,44 @@
   letter-spacing: 1px;
 }
 
+/* Sync peer list */
+.sync-peer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sync-peer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.sync-peer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ea043;
+  flex-shrink: 0;
+}
+
+.sync-peer-name {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text);
+  flex: 1;
+}
+
+.sync-peer-addr {
+  font-family: var(--font-digital);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
 /* Position grid */
 .position-row-wrapper {
   display: flex;

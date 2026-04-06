@@ -53,6 +53,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
   const [deviceName, setDeviceName] = useState('');
   const [useCustomName, setUseCustomName] = useState(false);
   const hostnameRef = useRef('');
+  const [syncPeers, setSyncPeers] = useState<{ name: string; address: string; port: number; lastSeen: number }[]>([]);
   const [vttEnabled, setVttEnabled] = useState(false);
   const [vttAutoTranscribe, setVttAutoTranscribe] = useState(false);
   const [modelStatus, setModelStatus] = useState<'checking' | 'installed' | 'not-installed' | 'error'>('checking');
@@ -124,6 +125,27 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
   }, [selectedDevice, widgetScale, widgetPosition, theme, uiFontSize,
       pushKey, lockKey, stealthKey, quickNoteKey, vttKey,
       discoverable, deviceName, useCustomName, vttEnabled, vttAutoTranscribe]);
+
+  // LAN Sync: start/stop when discoverable changes, listen for peers
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    const q = window.quenbot as any;
+    if (discoverable) {
+      const name = useCustomName && deviceName ? deviceName : hostnameRef.current || 'QUENbot';
+      q.startLanSync?.(name);
+      // Load initial peers
+      q.getSyncPeers?.().then((p: any[]) => setSyncPeers(p || [])).catch(() => {});
+    } else {
+      q.stopLanSync?.();
+      setSyncPeers([]);
+    }
+  }, [discoverable]);
+
+  useEffect(() => {
+    const q = window.quenbot as any;
+    q.onSyncPeersChanged?.((peers: any[]) => setSyncPeers(peers || []));
+    return () => { window.quenbot.removeAllListeners('sync-peers-changed'); };
+  }, []);
 
   // Check model
   const checkModelStatus = useCallback(async () => {
@@ -310,17 +332,35 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
           <label className="settings-switch"><input type="checkbox" checked={discoverable} onChange={e => setDiscoverable(e.target.checked)} /><span className="settings-switch-slider" /></label>
         </div>
         {discoverable && (
-          <div className="settings-group" style={{ marginTop: 6 }}>
-            <div className="settings-toggle-row">
-              <span className="settings-toggle-label">custom name</span>
-              <label className="settings-switch"><input type="checkbox" checked={useCustomName} onChange={e => setUseCustomName(e.target.checked)} /><span className="settings-switch-slider" /></label>
+          <>
+            <div className="settings-group" style={{ marginTop: 6 }}>
+              <div className="settings-toggle-row">
+                <span className="settings-toggle-label">custom name</span>
+                <label className="settings-switch"><input type="checkbox" checked={useCustomName} onChange={e => setUseCustomName(e.target.checked)} /><span className="settings-switch-slider" /></label>
+              </div>
+              {useCustomName ? (
+                <input type="text" className="settings-text-input" placeholder="Enter custom name" value={deviceName} onChange={e => setDeviceName(e.target.value)} />
+              ) : (
+                <div className="settings-hint">Broadcasting as: {hostnameRef.current}</div>
+              )}
             </div>
-            {useCustomName ? (
-              <input type="text" className="settings-text-input" placeholder="Enter custom name" value={deviceName} onChange={e => setDeviceName(e.target.value)} />
-            ) : (
-              <div className="settings-hint">Broadcasting as: {hostnameRef.current}</div>
-            )}
-          </div>
+            <div className="settings-group" style={{ marginTop: 6 }}>
+              <div className="settings-label"><span>discovered peers</span><span className="settings-value">{syncPeers.length}</span></div>
+              {syncPeers.length === 0 ? (
+                <div className="settings-hint">Scanning LAN for other QUENbot instances...</div>
+              ) : (
+                <div className="sync-peer-list">
+                  {syncPeers.map(p => (
+                    <div key={`${p.address}:${p.port}`} className="sync-peer-row">
+                      <span className="sync-peer-dot" />
+                      <span className="sync-peer-name">{p.name}</span>
+                      <span className="sync-peer-addr">{p.address}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
 

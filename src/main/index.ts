@@ -9,6 +9,7 @@ import { initShortcuts, stopShortcuts, setStealthCallbacks, loadHotkeyConfig, re
 import * as notesStore from './notes-store';
 import * as feedStore from './feed-store';
 import * as chipStore from './chip-store';
+import * as lanSync from './lan-sync';
 
 const isDev = process.env.NODE_ENV === 'development';
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
@@ -353,6 +354,47 @@ function registerIPC(): void {
   ipcMain.handle('remove-chip', (_event, id: string) => { chipStore.remove(id); return true; });
   ipcMain.handle('update-chip', (_event, id: string, name: string, color: string) => { chipStore.update(id, name, color); return true; });
 
+  // LAN Sync
+  ipcMain.handle('get-sync-peers', () => lanSync.getPeers());
+
+  ipcMain.handle('send-note-to-peer', async (_event, address: string, port: number, note: any) => {
+    return lanSync.sendNoteToPeer({ name: '', address, port, lastSeen: 0 }, note);
+  });
+
+  ipcMain.handle('start-lan-sync', (_event, name: string, port?: number) => {
+    if (lanSync.isRunning()) lanSync.stop();
+    lanSync.start({
+      name,
+      port,
+      onNote: (note, fromName) => {
+        // Save incoming note
+        notesStore.save(note);
+        // Add to feed
+        const title = note.title || 'Untitled note';
+        const preview = (note.content || '').replace(/<[^>]*>/g, '').substring(0, 80);
+        feedStore.addItem({ type: 'note', title: `[${fromName}] ${title}`, preview, refId: note.id });
+        // Notify renderer
+        const mainWin = getMainWindow();
+        if (mainWin && !mainWin.isDestroyed()) {
+          mainWin.webContents.send('note-received', { note, from: fromName });
+          mainWin.webContents.send('notes-updated');
+        }
+        log(`Note received from ${fromName}: "${title}"`);
+      },
+      onPeers: (peers) => {
+        const mainWin = getMainWindow();
+        if (mainWin && !mainWin.isDestroyed()) {
+          mainWin.webContents.send('sync-peers-changed', peers);
+        }
+      },
+      log: (msg) => log(`[LAN] ${msg}`),
+    });
+  });
+
+  ipcMain.handle('stop-lan-sync', () => {
+    lanSync.stop();
+  });
+
   // Show JOT tab
   ipcMain.handle('show-jot', () => {
     showJotTab();
@@ -649,6 +691,40 @@ app.whenReady().then(async () => {
   const settings = loadSettings();
   if (settings.hotkeys) loadHotkeyConfig(settings.hotkeys as any);
 
+  // Auto-start LAN sync if enabled
+  if (settings.syncEnabled) {
+    const os = require('os');
+    const syncName = settings.deviceName || os.hostname() || 'QUENbot';
+    try {
+      lanSync.start({
+        name: syncName as string,
+        port: (settings.syncPort as number) || undefined,
+        onNote: (note, fromName) => {
+          notesStore.save(note);
+          const title = note.title || 'Untitled note';
+          const preview = (note.content || '').replace(/<[^>]*>/g, '').substring(0, 80);
+          feedStore.addItem({ type: 'note', title: `[${fromName}] ${title}`, preview, refId: note.id });
+          const mainWin = getMainWindow();
+          if (mainWin && !mainWin.isDestroyed()) {
+            mainWin.webContents.send('note-received', { note, from: fromName });
+            mainWin.webContents.send('notes-updated');
+          }
+          log(`Note received from ${fromName}: "${title}"`);
+        },
+        onPeers: (peers) => {
+          const mainWin = getMainWindow();
+          if (mainWin && !mainWin.isDestroyed()) {
+            mainWin.webContents.send('sync-peers-changed', peers);
+          }
+        },
+        log: (msg) => log(`[LAN] ${msg}`),
+      });
+      await log('LAN sync auto-started');
+    } catch (err) {
+      await log(`LAN sync auto-start failed: ${err}`);
+    }
+  }
+
   try {
     initShortcuts();
     await log('Shortcuts initialized');
@@ -662,6 +738,7 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => { /* tray app */ });
 
 app.on('before-quit', () => {
+  try { lanSync.stop(); } catch { /* ignore */ }
   try { stopShortcuts(); } catch { /* ignore */ }
   BrowserWindow.getAllWindows().forEach((w) => {
     try { w.destroy(); } catch { /* ignore */ }

@@ -58,6 +58,17 @@ export function clearAll(): void {
   persist();
 }
 
+export function updateItemByRefId(type: FeedItemType, refId: string, updates: Partial<{ title: string; preview: string; }>): boolean {
+  const target = items.find(i => i.type === type && i.refId === refId);
+  if (target) {
+    if (updates.title !== undefined) target.title = updates.title;
+    if (updates.preview !== undefined) target.preview = updates.preview;
+    persist();
+    return true;
+  }
+  return false;
+}
+
 export function getItems(limit = 100, before?: string, filter?: string, sortBy?: string): FeedItem[] {
   let filtered = [...items];
 

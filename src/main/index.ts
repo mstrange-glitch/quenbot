@@ -307,14 +307,21 @@ function registerIPC(): void {
   ipcMain.handle('get-notes', () => notesStore.getAll());
   ipcMain.handle('save-note', async (_event, note: any, isNew?: boolean) => {
     notesStore.save(note);
+    
+    const title = note.title || 'Untitled note';
+    const preview = (note.content || '').replace(/<[^>]*>/g, '').substring(0, 80);
+
+    if (isNew) {
+      feedStore.addItem({ type: 'note', title, preview, refId: note.id });
+    } else {
+      const updated = feedStore.updateItemByRefId('note', note.id, { title, preview });
+      if (!updated) {
+        feedStore.addItem({ type: 'note', title, preview, refId: note.id });
+      }
+    }
+    
     const mainWin = getMainWindow();
     if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('notes-updated');
-    // Only add to feed for new notes, not every edit
-    if (isNew) {
-      const title = note.title || 'Untitled note';
-      const preview = (note.content || '').replace(/<[^>]*>/g, '').substring(0, 80);
-      feedStore.addItem({ type: 'note', title, preview, refId: note.id });
-    }
   });
   ipcMain.handle('delete-note', async (_event, id: string) => {
     notesStore.remove(id);

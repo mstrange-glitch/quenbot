@@ -76,6 +76,8 @@ const api = {
   showJotTab: (callback: () => void) => {
     ipcRenderer.on('show-jot-tab', () => callback());
   },
+  /** Returns (and clears) a Quick Note request made while this window was still loading. */
+  consumePendingJotTab: (): Promise<boolean> => ipcRenderer.invoke('consume-pending-jot-tab'),
 
   // Window controls
   setAlwaysOnTop: (value: boolean): Promise<void> => ipcRenderer.invoke('set-always-on-top', value),

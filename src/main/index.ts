@@ -1,7 +1,7 @@
 import { app, ipcMain, BrowserWindow, session, net, clipboard } from 'electron';
-import { readdir, stat, readFile, appendFile, writeFile, unlink, rename as fsRename, mkdir } from 'fs/promises';
+import { readdir, stat, readFile, appendFile, unlink, rename as fsRename, mkdir } from 'fs/promises';
 import { join, dirname, extname, resolve } from 'path';
-import { existsSync, readFileSync, writeFileSync, createWriteStream } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, createWriteStream } from 'fs';
 import { createTray } from './tray';
 import { createMainWindow, getMainWindow, setOnWidgetClosed, setAlwaysOnTop, setMiniMode, showWidgetPreview, hideWidgetPreview, updateWidgetPreview } from './windows';
 import { ensureRecordingsDir, getRecordingsDir, saveRecording } from './audio-saver';
@@ -165,12 +165,25 @@ function loadSettings(): Record<string, unknown> {
   return {};
 }
 
-async function saveSettings(settings: Record<string, unknown>): Promise<void> {
-  await writeFile(settingsPath, JSON.stringify(settings, null, 2));
+// Synchronous on purpose: the save-settings handler reads, merges and writes with no await in
+// between, so two saves can't interleave. Writing a temp file and renaming it over the real one
+// means a reader (or a crash) never sees a half-written settings.json.
+function saveSettings(settings: Record<string, unknown>): void {
+  const data = JSON.stringify(settings, null, 2);
+  const tmpPath = `${settingsPath}.tmp`;
+  try {
+    writeFileSync(tmpPath, data);
+    renameSync(tmpPath, settingsPath);
+  } catch {
+    // e.g. antivirus briefly locking the file: fall back to a direct write
+    writeFileSync(settingsPath, data);
+  }
 }
 
-// Windows won't let a background app take focus with focus() alone (the taskbar button
-// just flashes). Briefly making the window always-on-top brings it to the front.
+// Raise the window above other apps. Briefly making it always-on-top lifts it even when
+// Windows refuses focus() to a background app. Windows may still keep keyboard focus in the
+// app the user was typing in while the hotkey comes from the uiohook keyboard hook; Phase 4
+// moves Quick Note to a registered hotkey, which is allowed to take focus.
 function bringToFront(win: BrowserWindow): void {
   if (win.isMinimized()) win.restore();
   win.show();
@@ -183,19 +196,18 @@ function bringToFront(win: BrowserWindow): void {
   }
 }
 
+// Set when Quick Note is pressed; cleared once the main window's page has handled it.
+// A window that is still loading picks it up through 'consume-pending-jot-tab' after mounting.
+let pendingJotTab = false;
+
 // Show JOT tab helper (Quick Note hotkey)
 function showJotTab(): void {
-  const mainWin = getMainWindow();
-  if (!mainWin) {
-    const win = createMainWindow();
-    win.once('ready-to-show', () => {
-      bringToFront(win);
-      win.webContents.send('show-jot-tab');
-    });
-  } else {
-    bringToFront(mainWin);
-    mainWin.webContents.send('show-jot-tab');
-  }
+  pendingJotTab = true;
+  const win = getMainWindow() ?? createMainWindow();
+  // Still loading: it shows itself when ready and asks for the pending request.
+  if (win.webContents.isLoadingMainFrame()) return;
+  bringToFront(win);
+  win.webContents.send('show-jot-tab');
 }
 
 function registerIPC(): void {
@@ -243,6 +255,12 @@ function registerIPC(): void {
 
   ipcMain.handle('get-widget-mode', () => 'push');
 
+  ipcMain.handle('consume-pending-jot-tab', () => {
+    const pending = pendingJotTab;
+    pendingJotTab = false;
+    return pending;
+  });
+
   ipcMain.handle('hide-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win && !win.isDestroyed()) win.hide();
@@ -277,7 +295,7 @@ function registerIPC(): void {
 
   ipcMain.handle('get-settings', () => loadSettings());
 
-  ipcMain.handle('save-settings', async (_event, patch: Record<string, unknown>) => {
+  ipcMain.handle('save-settings', (_event, patch: Record<string, unknown>) => {
     // Merge into existing settings: undefined keeps the stored value, null removes the key.
     const merged: Record<string, unknown> = { ...loadSettings() };
     for (const [key, value] of Object.entries(patch)) {
@@ -285,7 +303,7 @@ function registerIPC(): void {
       if (value === null) delete merged[key];
       else merged[key] = value;
     }
-    await saveSettings(merged);
+    saveSettings(merged);
     if (merged.hotkeys) {
       loadHotkeyConfig(merged.hotkeys as any);
     }

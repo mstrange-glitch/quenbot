@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RecTab } from './components/rec/RecTab';
 import { JotTab } from './components/jot/JotTab';
 import { FeedTab } from './components/feed/FeedTab';
@@ -28,15 +28,27 @@ export const App: React.FC = () => {
     document.documentElement.style.setProperty('--ui-font-size', `${uiFontSize}px`);
   }, [theme, uiFontSize]);
 
+  // Quick Note hotkey: open JOT with the cursor in the editor. Kept in a ref so the listener
+  // below is registered once and still sees the current miniMode.
+  const openJotForQuickNote = useRef(() => {});
+  openJotForQuickNote.current = () => {
+    setActiveTab('jot');
+    setShowSettings(false);
+    setJotFocusRequest((n) => n + 1);
+    if (miniMode) { setMiniMode(false); window.quenbot.setMiniMode(false); }
+  };
+
   useEffect(() => {
     window.quenbot.showJotTab(() => {
-      setActiveTab('jot');
-      setShowSettings(false);
-      setJotFocusRequest((n) => n + 1);
-      if (miniMode) { setMiniMode(false); window.quenbot.setMiniMode(false); }
+      window.quenbot.consumePendingJotTab();
+      openJotForQuickNote.current();
     });
+    // A Quick Note pressed while this window was still loading is waiting in main.
+    window.quenbot.consumePendingJotTab().then((pending) => {
+      if (pending) openJotForQuickNote.current();
+    }).catch(() => {});
     return () => { window.quenbot.removeAllListeners('show-jot-tab'); };
-  }, [miniMode]);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

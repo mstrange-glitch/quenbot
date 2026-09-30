@@ -119,6 +119,9 @@ export const Player: React.FC<PlayerProps> = ({ audioBuffer, fileName }) => {
     const elapsed = ctx.currentTime - startTimeRef.current + offsetRef.current;
     setCurrentTime(Math.min(elapsed, duration));
     if (elapsed >= duration) {
+      // Release the finished source so a later rewind/FF starts from 0:00, not from the end.
+      sourceRef.current = null;
+      animRef.current = null;
       updatePlayState('stopped');
       offsetRef.current = 0;
       setCurrentTime(0);

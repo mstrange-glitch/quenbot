@@ -112,11 +112,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ content, locked, onChang
       handleKeyDown: (view, event) => {
         if (event.key !== 'Enter' || event.isComposing || event.repeat || !view.editable) return false;
         const { empty, $from } = view.state.selection;
-        const line = $from.parent;
-        const caretAtLineEnd = $from.parentOffset === line.content.size;
-        if (empty && line.isTextblock && caretAtLineEnd && isMellonPhrase(line.textContent)) {
-          openDoorRef.current();
-        }
+        const block = $from.parent;
+        if (!empty || !block.isTextblock) return false;
+        // A paragraph can hold several lines separated by Shift+Enter breaks; check only the caret's line.
+        const breakAsNewline = (node: { type: { name: string } }) => (node.type.name === 'hardBreak' ? '\n' : '');
+        const before = block.textBetween(0, $from.parentOffset, undefined, breakAsNewline);
+        const after = block.textBetween($from.parentOffset, block.content.size, undefined, breakAsNewline);
+        const caretAtLineEnd = after === '' || after.startsWith('\n');
+        const line = before.slice(before.lastIndexOf('\n') + 1);
+        if (caretAtLineEnd && isMellonPhrase(line)) openDoorRef.current();
         return false; // Enter still starts a new line as usual
       },
       handlePaste: (view, event) => {

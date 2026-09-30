@@ -4,10 +4,11 @@
   "description": "Unified audio recorder, note-taker, and voice transcriber with LAN sync",
   "main": "dist/main/index.js",
   "scripts": {
-    "dev": "bash dev.sh",
+    "dev": "node scripts/dev.mjs",
+    "typecheck": "tsc --noEmit -p .",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "dist": "electron-vite build && electron-builder"
+    "dist": "npm run typecheck && electron-vite build && electron-builder"
   },
   "dependencies": {
     "react": "^19.1.1",

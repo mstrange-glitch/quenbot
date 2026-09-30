@@ -169,17 +169,31 @@ async function saveSettings(settings: Record<string, unknown>): Promise<void> {
   await writeFile(settingsPath, JSON.stringify(settings, null, 2));
 }
 
-// Show JOT tab helper
+// Windows won't let a background app take focus with focus() alone (the taskbar button
+// just flashes). Briefly making the window always-on-top brings it to the front.
+function bringToFront(win: BrowserWindow): void {
+  if (win.isMinimized()) win.restore();
+  win.show();
+  const wasOnTop = win.isAlwaysOnTop();
+  win.setAlwaysOnTop(true);
+  win.focus();
+  win.moveTop();
+  if (!wasOnTop) {
+    setTimeout(() => { if (!win.isDestroyed()) win.setAlwaysOnTop(false); }, 50);
+  }
+}
+
+// Show JOT tab helper (Quick Note hotkey)
 function showJotTab(): void {
   const mainWin = getMainWindow();
   if (!mainWin) {
     const win = createMainWindow();
     win.once('ready-to-show', () => {
+      bringToFront(win);
       win.webContents.send('show-jot-tab');
     });
   } else {
-    mainWin.show();
-    mainWin.focus();
+    bringToFront(mainWin);
     mainWin.webContents.send('show-jot-tab');
   }
 }

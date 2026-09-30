@@ -8,7 +8,12 @@ import './chipbar.css';
 
 import type { Note, SyncPeer } from '../../../../shared/types';
 
-export const JotTab: React.FC = () => {
+interface JotTabProps {
+  /** Increments when the Quick Note hotkey wants the cursor placed in the editor. */
+  focusRequest?: number;
+}
+
+export const JotTab: React.FC<JotTabProps> = ({ focusRequest }) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [currentId, setCurrentId] = useState<string>('');
   const [syncPeers, setSyncPeers] = useState<SyncPeer[]>([]);
@@ -150,6 +155,7 @@ export const JotTab: React.FC = () => {
             content={currentNote.content}
             locked={currentNote.locked}
             onChange={handleContentChange}
+            focusRequest={focusRequest}
           />
         ) : (
           <div className="jot-empty">Create a note to get started</div>

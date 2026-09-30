@@ -13,6 +13,7 @@ export const App: React.FC = () => {
   const [uiFontSize, setUiFontSize] = useState(12);
   const [floatWindow, setFloatWindow] = useState(false);
   const [miniMode, setMiniMode] = useState(false);
+  const [jotFocusRequest, setJotFocusRequest] = useState(0);
 
   useEffect(() => {
     window.quenbot.getSettings().then((s) => {
@@ -31,6 +32,7 @@ export const App: React.FC = () => {
     window.quenbot.showJotTab(() => {
       setActiveTab('jot');
       setShowSettings(false);
+      setJotFocusRequest((n) => n + 1);
       if (miniMode) { setMiniMode(false); window.quenbot.setMiniMode(false); }
     });
     return () => { window.quenbot.removeAllListeners('show-jot-tab'); };
@@ -126,7 +128,7 @@ export const App: React.FC = () => {
         ) : (
           <>
             {activeTab === 'rec' && <RecTab />}
-            {activeTab === 'jot' && <JotTab />}
+            {activeTab === 'jot' && <JotTab focusRequest={jotFocusRequest} />}
             {activeTab === 'log' && <FeedTab onNavigate={(tab) => setActiveTab(tab)} />}
           </>
         )}

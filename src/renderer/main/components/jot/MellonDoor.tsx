@@ -13,18 +13,25 @@ export const MellonDoor: React.FC<MellonDoorProps> = ({ onClose }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Take focus so keys pressed while the door is open don't type into the note behind it.
+    // Chrome keeps typing into a contenteditable that still holds the selection even after
+    // focus moves elsewhere, so clear the editor's selection before taking focus.
+    window.getSelection()?.removeAllRanges();
     overlayRef.current?.focus();
-    const timer = window.setTimeout(onClose, SHOW_MS);
-    return () => window.clearTimeout(timer);
-  }, [onClose]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.repeat) return;
-    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') onClose();
-  };
+    // While the door is open, every key belongs to it: nothing reaches the note behind it.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.repeat) return;
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    const timer = window.setTimeout(onClose, SHOW_MS);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.clearTimeout(timer);
+    };
+  }, [onClose]);
 
   return createPortal(
     <div
@@ -34,7 +41,6 @@ export const MellonDoor: React.FC<MellonDoorProps> = ({ onClose }) => {
       aria-label={MELLON_WORD}
       tabIndex={-1}
       onClick={onClose}
-      onKeyDown={handleKeyDown}
     >
       <pre className="mellon-art" aria-hidden="true">{MELLON_ART}</pre>
       <div className="mellon-word">{MELLON_WORD}</div>

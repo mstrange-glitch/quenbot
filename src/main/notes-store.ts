@@ -41,6 +41,10 @@ export function getAll(): Note[] {
   return [...notes].sort((a, b) => a.order - b.order);
 }
 
+export function getById(id: string): Note | undefined {
+  return notes.find(n => n.id === id);
+}
+
 export function save(note: Note): void {
   const idx = notes.findIndex(n => n.id === note.id);
   note.updatedAt = new Date().toISOString();

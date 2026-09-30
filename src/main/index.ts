@@ -336,7 +336,11 @@ function registerIPC(): void {
 
   // Feed
   ipcMain.handle('get-feed', (_event, limit?: number, before?: string, filter?: string, sortBy?: string) => {
-    return feedStore.getItems(limit, before, filter, sortBy);
+    // Attach each note's current tags so LOG's tag filter and tag dots reflect the note as it is now.
+    return feedStore.getItems(limit, before, filter, sortBy).map(item => {
+      if (item.type !== 'note') return item;
+      return { ...item, chips: notesStore.getById(item.refId)?.chips ?? [] };
+    });
   });
 
   ipcMain.handle('delete-feed-item', async (_event, id: string) => {

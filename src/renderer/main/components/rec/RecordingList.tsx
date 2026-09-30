@@ -1,11 +1,6 @@
 import React, { useState, useRef } from 'react';
 
-interface RecordingFile {
-  name: string;
-  path: string;
-  size: number;
-  date: string;
-}
+import type { RecordingFile } from '../../../../shared/types';
 
 interface RecordingListProps {
   recordings: RecordingFile[];

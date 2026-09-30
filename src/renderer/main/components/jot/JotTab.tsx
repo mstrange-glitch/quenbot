@@ -6,23 +6,7 @@ import { ShareButton } from './ShareButton';
 import './jot.css';
 import './chipbar.css';
 
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  locked: boolean;
-  createdAt: string;
-  updatedAt: string;
-  order: number;
-  chips?: string[];
-}
-
-interface SyncPeer {
-  name: string;
-  address: string;
-  port: number;
-  lastSeen: number;
-}
+import type { Note, SyncPeer } from '../../../../shared/types';
 
 export const JotTab: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -65,7 +49,7 @@ export const JotTab: React.FC = () => {
     // Debounce saves — only persist after 800ms of inactivity
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      window.quenbot.saveNote(updated as any);
+      window.quenbot.saveNote(updated);
     }, 800);
   }, [currentNote]);
 
@@ -81,7 +65,7 @@ export const JotTab: React.FC = () => {
     };
     setNotes(prev => [...prev, newNote]);
     setCurrentId(newNote.id);
-    window.quenbot.saveNote(newNote as any, true);
+    window.quenbot.saveNote(newNote, true);
   }, [notes.length]);
 
   const handleDeleteNote = useCallback((id: string) => {
@@ -101,7 +85,7 @@ export const JotTab: React.FC = () => {
     if (!note) return;
     const updated = { ...note, title, updatedAt: new Date().toISOString() };
     setNotes(prev => prev.map(n => n.id === id ? updated : n));
-    window.quenbot.saveNote(updated as any);
+    window.quenbot.saveNote(updated);
   }, [notes]);
 
   const handleToggleLock = useCallback((id: string) => {
@@ -109,7 +93,7 @@ export const JotTab: React.FC = () => {
     if (!note) return;
     const updated = { ...note, locked: !note.locked, updatedAt: new Date().toISOString() };
     setNotes(prev => prev.map(n => n.id === id ? updated : n));
-    window.quenbot.saveNote(updated as any);
+    window.quenbot.saveNote(updated);
   }, [notes]);
 
   const handleReorder = useCallback((reordered: Note[]) => {
@@ -120,7 +104,7 @@ export const JotTab: React.FC = () => {
 
   // LAN Sync: listen for peers and incoming notes
   useEffect(() => {
-    const q = window.quenbot as any;
+    const q = window.quenbot;
     q.onSyncPeersChanged?.((peers: SyncPeer[]) => setSyncPeers(peers || []));
     q.onNoteReceived?.((data: { note: Note; from: string }) => {
       setToast(`Note received from ${data.from}`);
@@ -136,7 +120,7 @@ export const JotTab: React.FC = () => {
 
   const handleShareNote = useCallback(async (peer: SyncPeer) => {
     if (!currentNote) return;
-    const q = window.quenbot as any;
+    const q = window.quenbot;
     const ok = await q.sendNoteToPeer?.(peer.address, peer.port, currentNote);
     if (ok) {
       setToast(`Sent to ${peer.name}`);
@@ -154,7 +138,7 @@ export const JotTab: React.FC = () => {
       : [...currentChips, chipId];
     const updated = { ...currentNote, chips: newChips, updatedAt: new Date().toISOString() };
     setNotes(prev => prev.map(n => n.id === currentNote.id ? updated : n));
-    window.quenbot.saveNote(updated as any);
+    window.quenbot.saveNote(updated);
   }, [currentNote]);
 
   return (

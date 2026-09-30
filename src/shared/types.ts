@@ -1,3 +1,7 @@
+import type { QuenbotAPI } from '../preload';
+
+export type { QuenbotAPI };
+
 export interface RecordingFile {
   name: string;
   path: string;
@@ -35,9 +39,11 @@ export interface FeedItem {
   refId: string;
   size?: number;
   duration?: number;
+  /** Tag ids of the note this item refers to (attached live by main, not stored). */
+  chips?: string[];
 }
 
-export type WidgetMode = 'push' | 'lock';
+export type WidgetMode = 'push' | 'lock' | 'stealth' | 'transcribe';
 export type RecordingMode = 'push' | 'lock' | 'stealth';
 
 export interface HotkeyBinding {
@@ -45,15 +51,22 @@ export interface HotkeyBinding {
   key: string;
 }
 
+export interface HotkeyConfig {
+  pushRecord?: HotkeyBinding;
+  lockRecord?: HotkeyBinding;
+  stealthRecord?: HotkeyBinding;
+  quickNote?: HotkeyBinding;
+  transcribe?: HotkeyBinding;
+}
+
 export interface AppSettings {
   audioDeviceId?: string;
   widgetScale: number;
-  hotkeys: {
-    pushRecord?: HotkeyBinding;
-    lockRecord?: HotkeyBinding;
-    stealthRecord?: HotkeyBinding;
-    quickNote?: HotkeyBinding;
-  };
+  widgetPosition: string;
+  theme: string;
+  uiFontSize: number;
+  floatWindow: boolean;
+  hotkeys: HotkeyConfig;
   editorFontSize: number;
   editorFontFamily: string;
   wordWrap: boolean;
@@ -66,56 +79,24 @@ export interface AppSettings {
 }
 
 export interface SyncPeer {
+  id?: string;
   name: string;
   address: string;
   port: number;
   lastSeen: number;
 }
 
-export interface QuenbotAPI {
-  // Recording
-  onStartRecording: (cb: (mode: string) => void) => void;
-  onStopRecording: (cb: () => void) => void;
-  sendAudioData: (buffer: ArrayBuffer, sampleRate: number, channels: number) => Promise<string>;
-  signalSaveComplete: () => void;
-  getRecordings: () => Promise<RecordingFile[]>;
-  readAudioFile: (path: string) => Promise<ArrayBuffer>;
-  deleteRecording: (path: string) => Promise<boolean>;
-  renameRecording: (oldPath: string, newName: string) => Promise<string>;
+export interface ModelStatus {
+  status: 'installed' | 'not-installed' | 'error';
+  path: string;
+  message?: string;
+}
 
-  // Notes
-  getNotes: () => Promise<Note[]>;
-  saveNote: (note: Note) => Promise<void>;
-  deleteNote: (id: string) => Promise<void>;
-  reorderNotes: (ids: string[]) => Promise<void>;
-
-  // Feed
-  getFeed: (limit?: number, before?: string) => Promise<FeedItem[]>;
-
-  // Widget
-  onWidgetMode: (cb: (mode: string) => void) => void;
-  getWidgetMode: () => Promise<string>;
-  onRecordingsUpdated: (cb: () => void) => void;
-  onRecordingTick: (cb: (seconds: number) => void) => void;
-
-  // Window
-  hideWindow: () => Promise<void>;
-  minimizeWindow: () => Promise<void>;
-  showJotTab: (cb: () => void) => void;
-
-  // Settings
-  getAudioDevices: () => Promise<null>;
-  getSettings: () => Promise<AppSettings>;
-  saveSettings: (settings: Record<string, unknown>) => Promise<boolean>;
-
-  // LAN Sync
-  getSyncPeers: () => Promise<SyncPeer[]>;
-  sendNoteToPeer: (peerAddress: string, peerPort: number, note: Note) => Promise<boolean>;
-  onSyncPeersChanged: (cb: (peers: SyncPeer[]) => void) => void;
-  onNoteReceived: (cb: (data: { note: Note; from: string }) => void) => void;
-
-  // Listeners
-  removeAllListeners: (channel: string) => void;
+export interface ModelDownloadProgress {
+  downloaded: number;
+  total: number;
+  percent: number;
+  currentFile?: string;
 }
 
 declare global {

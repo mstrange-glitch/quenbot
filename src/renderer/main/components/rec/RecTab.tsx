@@ -3,12 +3,7 @@ import { Player } from './Player';
 import { RecordingList } from './RecordingList';
 import './rec.css';
 
-interface RecordingFile {
-  name: string;
-  path: string;
-  size: number;
-  date: string;
-}
+import type { RecordingFile } from '../../../../shared/types';
 
 export const RecTab: React.FC = () => {
   const [recordings, setRecordings] = useState<RecordingFile[]>([]);

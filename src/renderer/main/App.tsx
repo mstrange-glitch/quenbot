@@ -15,7 +15,7 @@ export const App: React.FC = () => {
   const [miniMode, setMiniMode] = useState(false);
 
   useEffect(() => {
-    window.quenbot.getSettings().then((s: any) => {
+    window.quenbot.getSettings().then((s) => {
       if (s?.theme) setTheme(s.theme);
       if (s?.uiFontSize) setUiFontSize(s.uiFontSize);
       if (s?.floatWindow) setFloatWindow(s.floatWindow);
@@ -31,7 +31,7 @@ export const App: React.FC = () => {
     window.quenbot.showJotTab(() => {
       setActiveTab('jot');
       setShowSettings(false);
-      if (miniMode) { setMiniMode(false); (window.quenbot as any).setMiniMode(false); }
+      if (miniMode) { setMiniMode(false); window.quenbot.setMiniMode(false); }
     });
     return () => { window.quenbot.removeAllListeners('show-jot-tab'); };
   }, [miniMode]);
@@ -53,8 +53,8 @@ export const App: React.FC = () => {
   const toggleFloat = () => {
     const v = !floatWindow;
     setFloatWindow(v);
-    (window.quenbot as any).setAlwaysOnTop(v);
-    window.quenbot.getSettings().then((s: any) => {
+    window.quenbot.setAlwaysOnTop(v);
+    window.quenbot.getSettings().then((s) => {
       window.quenbot.saveSettings({ ...s, floatWindow: v });
     });
   };
@@ -62,7 +62,7 @@ export const App: React.FC = () => {
   const toggleMiniMode = () => {
     const v = !miniMode;
     setMiniMode(v);
-    (window.quenbot as any).setMiniMode(v);
+    window.quenbot.setMiniMode(v);
     if (v) setShowSettings(false);
   };
 

@@ -1,19 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './feed.css';
 
-interface Chip { id: string; name: string; color: string; }
-
-interface FeedItem {
-  id: string;
-  type: 'recording' | 'note' | 'transcript';
-  title: string;
-  preview: string;
-  timestamp: string;
-  refId: string;
-  size?: number;
-  duration?: number;
-  chips?: string[];
-}
+import type { Chip, FeedItem } from '../../../../shared/types';
 
 interface FeedTabProps {
   onNavigate?: (tab: 'rec' | 'jot', refId: string) => void;
@@ -33,19 +21,19 @@ export const FeedTab: React.FC<FeedTabProps> = ({ onNavigate }) => {
   const [exportingId, setExportingId] = useState<string | null>(null);
 
   const loadFeed = useCallback(async () => {
-    const feed = await (window.quenbot as any).getFeed(200, undefined, filter === 'all' ? undefined : filter, sort);
+    const feed = await window.quenbot.getFeed(200, undefined, filter === 'all' ? undefined : filter, sort);
     setItems(feed);
   }, [filter, sort]);
 
   const loadChips = useCallback(async () => {
-    try { const c = await (window.quenbot as any).getChips(); setChips(c); } catch {}
+    try { const c = await window.quenbot.getChips(); setChips(c); } catch {}
   }, []);
 
   useEffect(() => { loadFeed(); loadChips(); }, [loadFeed, loadChips]);
 
   useEffect(() => {
-    (window.quenbot as any).onRecordingsUpdated?.(() => loadFeed());
-    (window.quenbot as any).onNotesUpdated?.(() => loadFeed());
+    window.quenbot.onRecordingsUpdated?.(() => loadFeed());
+    window.quenbot.onNotesUpdated?.(() => loadFeed());
     return () => {
       window.quenbot.removeAllListeners('recordings-updated');
       window.quenbot.removeAllListeners('notes-updated');
@@ -116,25 +104,25 @@ export const FeedTab: React.FC<FeedTabProps> = ({ onNavigate }) => {
   const handleDelete = async (e: React.MouseEvent, item: FeedItem) => {
     e.stopPropagation();
     setItems(prev => prev.filter(i => i.id !== item.id));
-    try { await (window.quenbot as any).deleteFeedItem(item.id); } catch {}
+    try { await window.quenbot.deleteFeedItem(item.id); } catch {}
   };
 
   const handleClearAll = async () => {
     if (!confirm('Clear all log history?')) return;
     setItems([]);
-    try { await (window.quenbot as any).clearFeed(); } catch {}
+    try { await window.quenbot.clearFeed(); } catch {}
   };
 
   const handleExport = async (e: React.MouseEvent, item: FeedItem, format: 'md' | 'txt') => {
     e.stopPropagation();
     setExportingId(item.id);
-    try { await (window.quenbot as any).exportFeedItem(item, format); } catch {}
+    try { await window.quenbot.exportFeedItem(item, format); } catch {}
     setTimeout(() => setExportingId(null), 1500);
   };
 
   const handleOpenFolder = async (e: React.MouseEvent, item: FeedItem) => {
     e.stopPropagation();
-    try { await (window.quenbot as any).openFeedItemFile(item.refId); } catch {}
+    try { await window.quenbot.openFeedItemFile(item.refId); } catch {}
   };
 
   const toggleInfo = (e: React.MouseEvent, id: string) => {

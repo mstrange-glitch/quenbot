@@ -1,15 +1,6 @@
 import React, { useState, useRef } from 'react';
 
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  locked: boolean;
-  createdAt: string;
-  updatedAt: string;
-  order: number;
-  chips?: string[];
-}
+import type { Note } from '../../../../shared/types';
 
 interface NoteTabsProps {
   notes: Note[];

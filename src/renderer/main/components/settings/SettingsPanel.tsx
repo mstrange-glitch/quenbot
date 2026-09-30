@@ -73,7 +73,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
       try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach(t => t.stop()); } catch {}
       const allDevices = await navigator.mediaDevices.enumerateDevices();
       setDevices(allDevices.filter(d => d.kind === 'audioinput'));
-      try { hostnameRef.current = await (window.quenbot as any).getHostname() || 'QUENbot-PC'; } catch { hostnameRef.current = 'QUENbot-PC'; }
+      try { hostnameRef.current = await window.quenbot.getHostname() || 'QUENbot-PC'; } catch { hostnameRef.current = 'QUENbot-PC'; }
 
       const settings = await window.quenbot.getSettings();
       if (settings?.audioDeviceId) setSelectedDevice(settings.audioDeviceId as string);
@@ -85,7 +85,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
       if (settings?.deviceName) { setDeviceName(settings.deviceName as string); setUseCustomName(true); }
       if (settings?.sttEnabled) setVttEnabled(settings.sttEnabled as boolean);
       if (settings?.sttAutoTranscribe) setVttAutoTranscribe(settings.sttAutoTranscribe as boolean);
-      const hk = settings?.hotkeys as any;
+      const hk = settings?.hotkeys;
       if (hk?.pushRecord?.key) setPushKey(hk.pushRecord.key);
       if (hk?.lockRecord?.key) setLockKey(hk.lockRecord.key);
       if (hk?.stealthRecord?.key) setStealthKey(hk.stealthRecord.key);
@@ -129,12 +129,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
   // LAN Sync: start/stop when discoverable changes, listen for peers
   useEffect(() => {
     if (!initialLoadDone.current) return;
-    const q = window.quenbot as any;
+    const q = window.quenbot;
     if (discoverable) {
       const name = useCustomName && deviceName ? deviceName : hostnameRef.current || 'QUENbot';
       q.startLanSync?.(name);
       // Load initial peers
-      q.getSyncPeers?.().then((p: any[]) => setSyncPeers(p || [])).catch(() => {});
+      q.getSyncPeers?.().then((p) => setSyncPeers(p || [])).catch(() => {});
     } else {
       q.stopLanSync?.();
       setSyncPeers([]);
@@ -142,15 +142,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
   }, [discoverable]);
 
   useEffect(() => {
-    const q = window.quenbot as any;
-    q.onSyncPeersChanged?.((peers: any[]) => setSyncPeers(peers || []));
+    const q = window.quenbot;
+    q.onSyncPeersChanged?.((peers) => setSyncPeers(peers || []));
     return () => { window.quenbot.removeAllListeners('sync-peers-changed'); };
   }, []);
 
   // Check model
   const checkModelStatus = useCallback(async () => {
     try {
-      const r = await (window.quenbot as any).getModelStatus();
+      const r = await window.quenbot.getModelStatus();
       setModelStatus(r.status);
       setModelError(r.message || '');
     } catch { setModelStatus('error'); setModelError('Check failed'); }
@@ -159,7 +159,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
   useEffect(() => { checkModelStatus(); }, [checkModelStatus]);
 
   useEffect(() => {
-    (window.quenbot as any).onModelDownloadProgress?.((p: any) => {
+    window.quenbot.onModelDownloadProgress?.((p) => {
       setDownloadPercent(p.percent);
       setDownloadedMB(Math.round(p.downloaded / 1048576));
       setTotalMB(Math.round(p.total / 1048576));
@@ -170,7 +170,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
 
   const handleDownloadModel = async () => {
     setDownloading(true); setDownloadPercent(0); setModelError('');
-    try { await (window.quenbot as any).downloadModel(); setDownloading(false); await checkModelStatus(); }
+    try { await window.quenbot.downloadModel(); setDownloading(false); await checkModelStatus(); }
     catch { setDownloading(false); setModelStatus('error'); setModelError('Download failed'); }
   };
 
@@ -196,10 +196,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
   }, [capturingKey]);
 
   // Widget preview
-  const showPreview = () => { if (!previewVisible) { (window.quenbot as any).showWidgetPreview(); setPreviewVisible(true); } };
-  const hidePreview = () => { if (previewVisible) { (window.quenbot as any).hideWidgetPreview(); setPreviewVisible(false); } };
-  useEffect(() => { if (previewVisible) (window.quenbot as any).updateWidgetPreview(widgetScale, widgetPosition); }, [widgetScale, widgetPosition, previewVisible]);
-  useEffect(() => { return () => { (window.quenbot as any).hideWidgetPreview?.(); }; }, []);
+  const showPreview = () => { if (!previewVisible) { window.quenbot.showWidgetPreview(); setPreviewVisible(true); } };
+  const hidePreview = () => { if (previewVisible) { window.quenbot.hideWidgetPreview(); setPreviewVisible(false); } };
+  useEffect(() => { if (previewVisible) window.quenbot.updateWidgetPreview(widgetScale, widgetPosition); }, [widgetScale, widgetPosition, previewVisible]);
+  useEffect(() => { return () => { window.quenbot.hideWidgetPreview?.(); }; }, []);
 
   const handleClose = () => { hidePreview(); onClose(); };
 

@@ -232,7 +232,7 @@ export const Widget: React.FC = () => {
       for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
 
       try {
-        const result = await (window.quenbot as any).transcribeAudio(merged.buffer, sampleRateRef.current);
+        const result = await window.quenbot.transcribeAudio(merged.buffer, sampleRateRef.current);
         transcriptRef.current = result || '';
         console.log('[Widget] Transcript:', result);
       } catch (err) {
@@ -248,7 +248,7 @@ export const Widget: React.FC = () => {
 
     // Send result to main for clipboard
     try {
-      (window.quenbot as any).sendTranscriptionResult(transcriptRef.current);
+      window.quenbot.sendTranscriptionResult(transcriptRef.current);
     } catch {}
   }, []);
 
@@ -258,8 +258,8 @@ export const Widget: React.FC = () => {
     window.quenbot.onStopRecording(() => { stopRecording(); });
 
     // Transcription listeners
-    (window.quenbot as any).onStartTranscription?.(() => { startTranscription(); });
-    (window.quenbot as any).onStopTranscription?.(() => { stopTranscription(); });
+    window.quenbot.onStartTranscription?.(() => { startTranscription(); });
+    window.quenbot.onStopTranscription?.(() => { stopTranscription(); });
 
     return () => {
       window.quenbot.removeAllListeners('set-widget-mode');

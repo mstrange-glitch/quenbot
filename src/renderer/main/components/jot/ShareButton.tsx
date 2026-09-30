@@ -1,11 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-interface SyncPeer {
-  name: string;
-  address: string;
-  port: number;
-  lastSeen: number;
-}
+import type { SyncPeer } from '../../../../shared/types';
 
 interface ShareButtonProps {
   peers: SyncPeer[];

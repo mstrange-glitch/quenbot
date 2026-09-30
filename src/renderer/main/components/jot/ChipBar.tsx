@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-interface Chip {
-  id: string;
-  name: string;
-  color: string;
-}
+import type { Chip } from '../../../../shared/types';
 
 interface ChipBarProps {
   noteChips: string[];
@@ -21,7 +17,7 @@ export const ChipBar: React.FC<ChipBarProps> = ({ noteChips, onChipToggle }) => 
   const [newColor, setNewColor] = useState(CHIP_COLORS[0]);
 
   const loadChips = useCallback(async () => {
-    try { const c = await (window.quenbot as any).getChips(); setChips(c); } catch {}
+    try { const c = await window.quenbot.getChips(); setChips(c); } catch {}
   }, []);
 
   useEffect(() => { loadChips(); }, [loadChips]);
@@ -29,7 +25,7 @@ export const ChipBar: React.FC<ChipBarProps> = ({ noteChips, onChipToggle }) => 
   const handleCreate = async () => {
     if (!newName.trim()) return;
     try {
-      await (window.quenbot as any).addChip(newName.trim(), newColor);
+      await window.quenbot.addChip(newName.trim(), newColor);
       setNewName('');
       setShowCreate(false);
       loadChips();
@@ -38,7 +34,7 @@ export const ChipBar: React.FC<ChipBarProps> = ({ noteChips, onChipToggle }) => 
 
   const handleDeleteChip = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    try { await (window.quenbot as any).removeChip(id); loadChips(); } catch {}
+    try { await window.quenbot.removeChip(id); loadChips(); } catch {}
   };
 
   if (chips.length === 0 && !expanded) {

@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type {
+  AppSettings, Chip, FeedItem, ModelDownloadProgress, ModelStatus, Note, RecordingFile, SyncPeer,
+} from '../shared/types';
 
-contextBridge.exposeInMainWorld('quenbot', {
+const api = {
   // Recording
   onStartRecording: (callback: (mode: string) => void) => {
     ipcRenderer.on('start-recording', (_event, mode) => callback(mode));
@@ -8,7 +11,7 @@ contextBridge.exposeInMainWorld('quenbot', {
   onStopRecording: (callback: () => void) => {
     ipcRenderer.on('stop-recording', () => callback());
   },
-  sendAudioData: (buffer: ArrayBuffer, sampleRate: number, channels: number) => {
+  sendAudioData: (buffer: ArrayBuffer, sampleRate: number, channels: number): Promise<string> => {
     return ipcRenderer.invoke('save-audio', buffer, sampleRate, channels);
   },
   signalSaveComplete: () => {
@@ -25,40 +28,42 @@ contextBridge.exposeInMainWorld('quenbot', {
   sendTranscriptionResult: (text: string) => {
     ipcRenderer.send('transcription-result', text);
   },
-  transcribeAudio: (buffer: ArrayBuffer, sampleRate: number) => ipcRenderer.invoke('transcribe-audio', buffer, sampleRate),
+  transcribeAudio: (buffer: ArrayBuffer, sampleRate: number): Promise<string> =>
+    ipcRenderer.invoke('transcribe-audio', buffer, sampleRate),
 
   // Playback
-  getRecordings: () => ipcRenderer.invoke('get-recordings'),
-  readAudioFile: (path: string) => ipcRenderer.invoke('read-audio-file', path),
+  getRecordings: (): Promise<RecordingFile[]> => ipcRenderer.invoke('get-recordings'),
+  readAudioFile: (path: string): Promise<ArrayBuffer> => ipcRenderer.invoke('read-audio-file', path),
 
   // File management
-  deleteRecording: (path: string) => ipcRenderer.invoke('delete-recording', path),
-  renameRecording: (oldPath: string, newName: string) => ipcRenderer.invoke('rename-recording', oldPath, newName),
+  deleteRecording: (path: string): Promise<boolean> => ipcRenderer.invoke('delete-recording', path),
+  renameRecording: (oldPath: string, newName: string): Promise<string> => ipcRenderer.invoke('rename-recording', oldPath, newName),
 
   // Notes
-  getNotes: () => ipcRenderer.invoke('get-notes'),
-  saveNote: (note: Record<string, unknown>, isNew?: boolean) => ipcRenderer.invoke('save-note', note, isNew),
-  deleteNote: (id: string) => ipcRenderer.invoke('delete-note', id),
-  reorderNotes: (ids: string[]) => ipcRenderer.invoke('reorder-notes', ids),
+  getNotes: (): Promise<Note[]> => ipcRenderer.invoke('get-notes'),
+  saveNote: (note: Note, isNew?: boolean): Promise<void> => ipcRenderer.invoke('save-note', note, isNew),
+  deleteNote: (id: string): Promise<void> => ipcRenderer.invoke('delete-note', id),
+  reorderNotes: (ids: string[]): Promise<void> => ipcRenderer.invoke('reorder-notes', ids),
 
   // Feed
-  getFeed: (limit?: number, before?: string, filter?: string, sortBy?: string) => ipcRenderer.invoke('get-feed', limit, before, filter, sortBy),
-  deleteFeedItem: (id: string) => ipcRenderer.invoke('delete-feed-item', id),
-  clearFeed: () => ipcRenderer.invoke('clear-feed'),
-  exportFeedItem: (item: any, format: 'md' | 'txt') => ipcRenderer.invoke('export-feed-item', item, format),
-  openFeedItemFile: (refId: string) => ipcRenderer.invoke('open-feed-item-file', refId),
+  getFeed: (limit?: number, before?: string, filter?: string, sortBy?: string): Promise<FeedItem[]> =>
+    ipcRenderer.invoke('get-feed', limit, before, filter, sortBy),
+  deleteFeedItem: (id: string): Promise<void> => ipcRenderer.invoke('delete-feed-item', id),
+  clearFeed: (): Promise<void> => ipcRenderer.invoke('clear-feed'),
+  exportFeedItem: (item: FeedItem, format: 'md' | 'txt'): Promise<string> => ipcRenderer.invoke('export-feed-item', item, format),
+  openFeedItemFile: (refId: string): Promise<void> => ipcRenderer.invoke('open-feed-item-file', refId),
 
   // Chips
-  getChips: () => ipcRenderer.invoke('get-chips'),
-  addChip: (name: string, color: string) => ipcRenderer.invoke('add-chip', name, color),
-  removeChip: (id: string) => ipcRenderer.invoke('remove-chip', id),
-  updateChip: (id: string, name: string, color: string) => ipcRenderer.invoke('update-chip', id, name, color),
+  getChips: (): Promise<Chip[]> => ipcRenderer.invoke('get-chips'),
+  addChip: (name: string, color: string): Promise<Chip> => ipcRenderer.invoke('add-chip', name, color),
+  removeChip: (id: string): Promise<boolean> => ipcRenderer.invoke('remove-chip', id),
+  updateChip: (id: string, name: string, color: string): Promise<boolean> => ipcRenderer.invoke('update-chip', id, name, color),
 
   // Window
   onWidgetMode: (callback: (mode: string) => void) => {
     ipcRenderer.on('set-widget-mode', (_event, mode) => callback(mode));
   },
-  getWidgetMode: () => ipcRenderer.invoke('get-widget-mode'),
+  getWidgetMode: (): Promise<string> => ipcRenderer.invoke('get-widget-mode'),
   onRecordingsUpdated: (callback: () => void) => {
     ipcRenderer.on('recordings-updated', () => callback());
   },
@@ -73,42 +78,47 @@ contextBridge.exposeInMainWorld('quenbot', {
   },
 
   // Window controls
-  setAlwaysOnTop: (value: boolean) => ipcRenderer.invoke('set-always-on-top', value),
-  setMiniMode: (mini: boolean) => ipcRenderer.invoke('set-mini-mode', mini),
-  showWidgetPreview: () => ipcRenderer.invoke('show-widget-preview'),
-  hideWidgetPreview: () => ipcRenderer.invoke('hide-widget-preview'),
-  updateWidgetPreview: (scale: number, position: string) => ipcRenderer.invoke('update-widget-preview', scale, position),
-  hideWindow: () => ipcRenderer.invoke('hide-window'),
-  minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
+  setAlwaysOnTop: (value: boolean): Promise<void> => ipcRenderer.invoke('set-always-on-top', value),
+  setMiniMode: (mini: boolean): Promise<void> => ipcRenderer.invoke('set-mini-mode', mini),
+  showWidgetPreview: (): Promise<void> => ipcRenderer.invoke('show-widget-preview'),
+  hideWidgetPreview: (): Promise<void> => ipcRenderer.invoke('hide-widget-preview'),
+  updateWidgetPreview: (scale: number, position: string): Promise<void> => ipcRenderer.invoke('update-widget-preview', scale, position),
+  hideWindow: (): Promise<void> => ipcRenderer.invoke('hide-window'),
+  minimizeWindow: (): Promise<void> => ipcRenderer.invoke('minimize-window'),
 
   // Settings
-  getAudioDevices: () => ipcRenderer.invoke('get-audio-devices'),
-  getSettings: () => ipcRenderer.invoke('get-settings'),
-  saveSettings: (settings: Record<string, unknown>) => ipcRenderer.invoke('save-settings', settings),
+  getAudioDevices: (): Promise<null> => ipcRenderer.invoke('get-audio-devices'),
+  getSettings: (): Promise<Partial<AppSettings>> => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings: Partial<AppSettings>): Promise<boolean> => ipcRenderer.invoke('save-settings', settings),
 
   // System
-  getHostname: () => ipcRenderer.invoke('get-hostname'),
+  getHostname: (): Promise<string> => ipcRenderer.invoke('get-hostname'),
 
   // LAN Sync
-  getSyncPeers: () => ipcRenderer.invoke('get-sync-peers'),
-  sendNoteToPeer: (address: string, port: number, note: any) => ipcRenderer.invoke('send-note-to-peer', address, port, note),
-  startLanSync: (name: string, port?: number) => ipcRenderer.invoke('start-lan-sync', name, port),
-  stopLanSync: () => ipcRenderer.invoke('stop-lan-sync'),
-  onSyncPeersChanged: (callback: (peers: any[]) => void) => {
+  getSyncPeers: (): Promise<SyncPeer[]> => ipcRenderer.invoke('get-sync-peers'),
+  sendNoteToPeer: (address: string, port: number, note: Note): Promise<boolean> =>
+    ipcRenderer.invoke('send-note-to-peer', address, port, note),
+  startLanSync: (name: string, port?: number): Promise<void> => ipcRenderer.invoke('start-lan-sync', name, port),
+  stopLanSync: (): Promise<void> => ipcRenderer.invoke('stop-lan-sync'),
+  onSyncPeersChanged: (callback: (peers: SyncPeer[]) => void) => {
     ipcRenderer.on('sync-peers-changed', (_event, peers) => callback(peers));
   },
-  onNoteReceived: (callback: (data: { note: any; from: string }) => void) => {
+  onNoteReceived: (callback: (data: { note: Note; from: string }) => void) => {
     ipcRenderer.on('note-received', (_event, data) => callback(data));
   },
 
   // Model
-  getModelStatus: () => ipcRenderer.invoke('get-model-status'),
-  downloadModel: () => ipcRenderer.invoke('download-model'),
-  onModelDownloadProgress: (callback: (progress: { downloaded: number; total: number; percent: number }) => void) => {
+  getModelStatus: (): Promise<ModelStatus> => ipcRenderer.invoke('get-model-status'),
+  downloadModel: (): Promise<string> => ipcRenderer.invoke('download-model'),
+  onModelDownloadProgress: (callback: (progress: ModelDownloadProgress) => void) => {
     ipcRenderer.on('model-download-progress', (_event, progress) => callback(progress));
   },
 
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);
   },
-});
+};
+
+export type QuenbotAPI = typeof api;
+
+contextBridge.exposeInMainWorld('quenbot', api);

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
-  AppSettings, Chip, FeedItem, ModelDownloadProgress, ModelStatus, Note, RecordingFile, SyncPeer,
+  AppSettings, Chip, FeedItem, ModelDownloadProgress, ModelStatus, Note, RecordingFile, SettingsPatch, SyncPeer,
 } from '../shared/types';
 
 const api = {
@@ -89,7 +89,7 @@ const api = {
   // Settings
   getAudioDevices: (): Promise<null> => ipcRenderer.invoke('get-audio-devices'),
   getSettings: (): Promise<Partial<AppSettings>> => ipcRenderer.invoke('get-settings'),
-  saveSettings: (settings: Partial<AppSettings>): Promise<boolean> => ipcRenderer.invoke('save-settings', settings),
+  saveSettings: (settings: SettingsPatch): Promise<boolean> => ipcRenderer.invoke('save-settings', settings),
 
   // System
   getHostname: (): Promise<string> => ipcRenderer.invoke('get-hostname'),

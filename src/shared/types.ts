@@ -78,6 +78,9 @@ export interface AppSettings {
   deviceName: string;
 }
 
+/** Partial settings update: an omitted or undefined key keeps its stored value, null removes it. */
+export type SettingsPatch = { [K in keyof AppSettings]?: AppSettings[K] | null };
+
 export interface SyncPeer {
   id?: string;
   name: string;

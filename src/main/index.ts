@@ -261,13 +261,13 @@ function registerIPC(): void {
 
   ipcMain.handle('get-settings', () => loadSettings());
 
-  ipcMain.handle('save-settings', async (_event, settings: Record<string, unknown>) => {
-    // Merge with existing settings so we don't lose fields like floatWindow
-    const existing = loadSettings();
-    const merged = { ...existing, ...settings };
-    // Remove undefined values so they don't overwrite existing
-    for (const key of Object.keys(merged)) {
-      if (merged[key] === undefined) delete merged[key];
+  ipcMain.handle('save-settings', async (_event, patch: Record<string, unknown>) => {
+    // Merge into existing settings: undefined keeps the stored value, null removes the key.
+    const merged: Record<string, unknown> = { ...loadSettings() };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) continue;
+      if (value === null) delete merged[key];
+      else merged[key] = value;
     }
     await saveSettings(merged);
     if (merged.hotkeys) {

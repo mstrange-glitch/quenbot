@@ -54,9 +54,7 @@ export const App: React.FC = () => {
     const v = !floatWindow;
     setFloatWindow(v);
     window.quenbot.setAlwaysOnTop(v);
-    window.quenbot.getSettings().then((s) => {
-      window.quenbot.saveSettings({ ...s, floatWindow: v });
-    });
+    window.quenbot.saveSettings({ floatWindow: v });
   };
 
   const toggleMiniMode = () => {

@@ -105,11 +105,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, currentTh
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       window.quenbot.saveSettings({
-        audioDeviceId: selectedDevice || undefined,
+        audioDeviceId: selectedDevice || null,
         widgetScale, widgetPosition, theme, uiFontSize,
-        floatWindow: undefined, // preserve existing
         syncEnabled: discoverable,
-        deviceName: useCustomName ? deviceName : undefined,
+        deviceName: useCustomName ? deviceName : null,
         sttEnabled: vttEnabled, sttAutoTranscribe: vttAutoTranscribe,
         hotkeys: {
           pushRecord: { modifiers: ['Ctrl', 'Shift'], key: pushKey },

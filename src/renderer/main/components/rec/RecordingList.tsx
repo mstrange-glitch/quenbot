@@ -69,7 +69,10 @@ export const RecordingList: React.FC<RecordingListProps> = ({
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={() => commitRename(i)}
+                onDoubleClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
+                  // Keep typing keys (Space, arrows) away from the player and list shortcuts.
+                  e.stopPropagation();
                   if (e.key === 'Enter') commitRename(i);
                   if (e.key === 'Escape') setEditingIndex(-1);
                 }}

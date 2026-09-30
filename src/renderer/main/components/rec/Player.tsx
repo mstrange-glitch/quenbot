@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Waveform } from './Waveform';
+import { shouldIgnoreShortcut } from '../../lib/keys';
 
 interface PlayerProps {
   audioBuffer: AudioBuffer | null;
@@ -126,11 +127,28 @@ export const Player: React.FC<PlayerProps> = ({ audioBuffer, fileName }) => {
     animRef.current = requestAnimationFrame(animate);
   }, [audioBuffer, duration, updatePlayState]);
 
+  // Stop the playing source (if any) and fold the time it played into offsetRef.
+  // Returns whether audio was actually playing.
+  const stopPlayback = useCallback((): boolean => {
+    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+    const source = sourceRef.current;
+    if (!source) return false;
+    sourceRef.current = null;
+    try { source.stop(); } catch { /* ok */ }
+    const ctx = audioCtxRef.current;
+    if (ctx) {
+      offsetRef.current = Math.min(offsetRef.current + ctx.currentTime - startTimeRef.current, duration);
+    }
+    return true;
+  }, [duration]);
+
   const play = useCallback(() => {
     if (!audioBuffer) return;
     const ctx = getAudioContext();
-    if (sourceRef.current) { try { sourceRef.current.stop(); } catch { /* ok */ } }
+    stopPlayback();
 
+    // Play from the start if the playhead is at (or past) the end.
+    if (offsetRef.current >= audioBuffer.duration - 0.05) offsetRef.current = 0;
     const safeOffset = Math.max(0, Math.min(offsetRef.current, audioBuffer.duration - 0.01));
     offsetRef.current = (!isFinite(safeOffset) || safeOffset < 0) ? 0 : safeOffset;
 
@@ -142,7 +160,9 @@ export const Player: React.FC<PlayerProps> = ({ audioBuffer, fileName }) => {
     startTimeRef.current = ctx.currentTime;
 
     source.onended = () => {
-      if (playStateRef.current === 'playing') {
+      // Ignore the end event of a source that was stopped or replaced.
+      if (sourceRef.current === source && playStateRef.current === 'playing') {
+        sourceRef.current = null;
         updatePlayState('stopped');
         offsetRef.current = 0;
         setCurrentTime(0);
@@ -152,19 +172,14 @@ export const Player: React.FC<PlayerProps> = ({ audioBuffer, fileName }) => {
     updatePlayState('playing');
     animRef.current = requestAnimationFrame(animate);
     playClick();
-  }, [audioBuffer, animate, getAudioContext, playClick, updatePlayState]);
+  }, [audioBuffer, animate, getAudioContext, playClick, stopPlayback, updatePlayState]);
 
   const pause = useCallback(() => {
-    if (sourceRef.current) { try { sourceRef.current.stop(); } catch { /* ok */ } sourceRef.current = null; }
-    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-    const ctx = audioCtxRef.current;
-    if (ctx) {
-      offsetRef.current += ctx.currentTime - startTimeRef.current;
-      offsetRef.current = Math.min(offsetRef.current, duration);
-    }
+    const wasPlaying = stopPlayback();
+    setCurrentTime(offsetRef.current);
     updatePlayState('paused');
-    playClick();
-  }, [duration, playClick, updatePlayState]);
+    if (wasPlaying) playClick();
+  }, [playClick, stopPlayback, updatePlayState]);
 
   const stopSeeking = useCallback(() => {
     if (seekIntervalRef.current) { clearInterval(seekIntervalRef.current); seekIntervalRef.current = null; }
@@ -176,7 +191,7 @@ export const Player: React.FC<PlayerProps> = ({ audioBuffer, fileName }) => {
   const startRewind = useCallback(() => {
     if (!audioBuffer) return;
     if (seekIntervalRef.current) clearInterval(seekIntervalRef.current);
-    pause();
+    if (stopPlayback()) playClick();
     updatePlayState('rewinding');
     startScrubSound('reverse');
     seekIntervalRef.current = setInterval(() => {
@@ -187,12 +202,12 @@ export const Player: React.FC<PlayerProps> = ({ audioBuffer, fileName }) => {
         stopSeeking();
       }
     }, 50);
-  }, [audioBuffer, pause, startScrubSound, stopSeeking, updatePlayState]);
+  }, [audioBuffer, playClick, startScrubSound, stopPlayback, stopSeeking, updatePlayState]);
 
   const startForward = useCallback(() => {
     if (!audioBuffer) return;
     if (seekIntervalRef.current) clearInterval(seekIntervalRef.current);
-    pause();
+    if (stopPlayback()) playClick();
     updatePlayState('forwarding');
     startScrubSound('forward');
     seekIntervalRef.current = setInterval(() => {
@@ -203,12 +218,12 @@ export const Player: React.FC<PlayerProps> = ({ audioBuffer, fileName }) => {
         stopSeeking();
       }
     }, 50);
-  }, [audioBuffer, duration, pause, startScrubSound, stopSeeking, updatePlayState]);
+  }, [audioBuffer, duration, playClick, startScrubSound, stopPlayback, stopSeeking, updatePlayState]);
 
   useEffect(() => {
     if (!audioBuffer) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.repeat) return;
+      if (e.repeat || shouldIgnoreShortcut(e)) return;
       switch (e.code) {
         case 'Space':
           e.preventDefault();
@@ -234,14 +249,20 @@ export const Player: React.FC<PlayerProps> = ({ audioBuffer, fileName }) => {
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
   }, [audioBuffer, playState, play, pause, startRewind, startForward, stopSeeking]);
 
+  // A newly selected recording always starts at 0:00, stopped.
   useEffect(() => {
+    offsetRef.current = 0;
+    setCurrentTime(0);
+    updatePlayState('stopped');
     return () => {
-      if (sourceRef.current) { try { sourceRef.current.stop(); } catch { /* ok */ } }
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-      if (seekIntervalRef.current) clearInterval(seekIntervalRef.current);
+      const source = sourceRef.current;
+      sourceRef.current = null;
+      if (source) { try { source.stop(); } catch { /* ok */ } }
+      if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+      if (seekIntervalRef.current) { clearInterval(seekIntervalRef.current); seekIntervalRef.current = null; }
       stopScrubSound();
     };
-  }, [audioBuffer, stopScrubSound]);
+  }, [audioBuffer, stopScrubSound, updatePlayState]);
 
   const formatTime = (secs: number): string => {
     const m = Math.floor(secs / 60).toString().padStart(2, '0');

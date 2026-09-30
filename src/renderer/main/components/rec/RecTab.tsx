@@ -4,6 +4,7 @@ import { RecordingList } from './RecordingList';
 import './rec.css';
 
 import type { RecordingFile } from '../../../../shared/types';
+import { shouldIgnoreShortcut } from '../../lib/keys';
 
 export const RecTab: React.FC = () => {
   const [recordings, setRecordings] = useState<RecordingFile[]>([]);
@@ -59,11 +60,12 @@ export const RecTab: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'ArrowUp' && !e.ctrlKey && !e.shiftKey) {
+      if (shouldIgnoreShortcut(e)) return;
+      if (e.code === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex((i) => Math.max(0, i - 1));
       }
-      if (e.code === 'ArrowDown' && !e.ctrlKey && !e.shiftKey) {
+      if (e.code === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex((i) => Math.min(recordings.length - 1, i + 1));
       }

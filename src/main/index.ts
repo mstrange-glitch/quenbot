@@ -30,16 +30,18 @@ process.on('unhandledRejection', (reason) => {
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
-  app.quit();
+  // Another QUENbot is already running; it will show its window (see 'second-instance').
+  // Exit now so this copy never runs startup code (tray, hotkeys, LAN ports, a window).
+  app.exit(0);
 }
 
 app.on('second-instance', () => {
-  const mainWin = getMainWindow();
-  if (mainWin) {
-    mainWin.show();
-    if (mainWin.isMinimized()) mainWin.restore();
-    mainWin.focus();
-  }
+  if (!app.isReady()) return;
+  // Launching QUENbot again brings up the existing window, creating it if it was never opened.
+  const mainWin = createMainWindow();
+  if (mainWin.isMinimized()) mainWin.restore();
+  mainWin.show();
+  mainWin.focus();
 });
 
 // Stealth recording
@@ -234,7 +236,7 @@ function registerIPC(): void {
 
   ipcMain.handle('minimize-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed()) win.hide();
+    if (win && !win.isDestroyed()) win.minimize();
   });
 
   ipcMain.handle('get-audio-devices', async () => null);
@@ -675,6 +677,7 @@ while True:
 }
 
 app.whenReady().then(async () => {
+  if (!gotTheLock) return;
   await log('QUENbot starting...');
 
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, callback) => {
@@ -689,6 +692,9 @@ app.whenReady().then(async () => {
   registerIPC();
   createTray();
   await log('Tray created');
+
+  // Show the window at launch; `--hidden` (e.g. launch at sign-in) starts in the tray only.
+  if (!process.argv.includes('--hidden')) createMainWindow();
 
   setStealthCallbacks(startStealthRecording, stopStealthRecording);
   setOnWidgetClosed(resetRecordingState);

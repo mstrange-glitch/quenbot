@@ -104,8 +104,8 @@ export const App: React.FC = () => {
           </button>
           <button className={`titlebar-btn titlebar-settings${showSettings ? ' active' : ''}`}
             onClick={() => setShowSettings(!showSettings)} title="Settings">&#9881;</button>
-          <button className="titlebar-btn titlebar-minimize" onClick={() => window.quenbot.minimizeWindow()}>&ndash;</button>
-          <button className="titlebar-btn titlebar-close" onClick={() => window.quenbot.hideWindow()}>&times;</button>
+          <button className="titlebar-btn titlebar-minimize" onClick={() => window.quenbot.minimizeWindow()} title="Minimize">&ndash;</button>
+          <button className="titlebar-btn titlebar-close" onClick={() => window.quenbot.hideWindow()} title="Hide to tray">&times;</button>
         </div>
       </div>
 

@@ -57,6 +57,7 @@ export function createTray(): Tray {
     { label: 'Quit', click: () => app.quit() },
   ]);
   tray.setContextMenu(contextMenu);
+  tray.on('click', () => createMainWindow());
   tray.on('double-click', () => createMainWindow());
   return tray;
 }
